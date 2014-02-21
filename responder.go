@@ -10,8 +10,8 @@ type Response struct {
 }
 
 func (response *Response) Json(result interface{}, code int) error {
-	response.w.WriteHeader(code)
 	response.w.Header().Add("Content-Type", "application/json")
+	response.w.WriteHeader(code)
 	return json.NewEncoder(response.w).Encode(result)
 }
 
