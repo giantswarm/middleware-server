@@ -13,14 +13,14 @@ import (
 )
 
 // Define testing middlewares.
-type versionOne struct {}
+type versionOne struct{}
 
 func (this *versionOne) first(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
-  return ctx.Next()
+	return ctx.Next()
 }
 
 func (this *versionOne) last(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
-  return ctx.Response.PlainText("hello world", http.StatusOK)
+	return ctx.Response.PlainText("hello world", http.StatusOK)
 }
 
 // Test the server.
@@ -39,9 +39,9 @@ var _ = Describe("Server", func() {
 		srv := server.NewServer("", "")
 		v1 := &versionOne{}
 		srv.Serve("GET", "/v1/hello/",
-      v1.first,
-      v1.last,
-    )
+			v1.first,
+			v1.last,
+		)
 
 		// Configure test server router.
 		ts.Config.Handler = srv.Routers["v1"]
