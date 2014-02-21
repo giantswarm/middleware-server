@@ -10,10 +10,4 @@ import "github.com/catalyst-zero/middleware-server"
 ```
 
 ### Usage
-```golang
-// Create server.
-srv := server.NewServer("127.0.0.1", "8080")
-srv.SetLogger(srv.NewLogger("app-name"))
-
-srv.Serve("GET", "/v1/")
-```
+see tests
