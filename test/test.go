@@ -47,20 +47,20 @@ func ProcessRequest(req *http.Request) (*http.Response, string) {
 	return res, string(body)
 }
 
-func GetRequest(url string) (int, string, *http.Response) {
+func NewGetRequest(url string) (int, string, *http.Response) {
 	req := Get(url)
 	res, body := ProcessRequest(req)
 
 	return res.StatusCode, body, res
 }
 
-func PostRequest(url string, data string, header map[string]string) (int, string, *http.Response) {
+func NewPostRequest(url string, data string, header map[string]string) (int, string, *http.Response) {
 	req := Post(url, data, header)
 	res, body := ProcessRequest(req)
 
 	return res.StatusCode, body, res
 }
 
-func CreateServer(router *mux.Router) *httptest.Server {
+func NewServer(router *mux.Router) *httptest.Server {
 	return httptest.NewServer(router)
 }
