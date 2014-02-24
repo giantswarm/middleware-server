@@ -15,9 +15,10 @@ type Logger *log.Logger
 
 type Server struct {
 	// The address to listen on.
-	addr    string
-	Logger  *log.Logger
-	Routers map[string]*mux.Router
+	addr       string
+	Logger     *log.Logger
+	Routers    map[string]*mux.Router
+	appContext interface{}
 }
 
 // Middleware is a http handler method.
@@ -28,6 +29,7 @@ type Context struct {
 	MuxVars  map[string]string
 	Response Response
 	Next     func() error
+	App      interface{}
 }
 
 func NewServer(host, port string) *Server {
@@ -71,6 +73,10 @@ func (this *Server) SetLogger(logger *log.Logger) {
 	this.Logger = logger
 }
 
+func (this *Server) SetAppContext(appContext interface{}) {
+	this.appContext = appContext
+}
+
 // Create a logger with possible levels:
 //   Critical
 //   Error
@@ -98,6 +104,10 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 			Response: Response{
 				w: res,
 			},
+		}
+
+		if this.appContext != nil {
+			ctx.App = this.appContext
 		}
 
 		for _, middleware := range middlewares {
