@@ -5,12 +5,12 @@ Lightweight server module, handling http middlewares.
 http://godoc.org/github.com/catalyst-zero/middleware-server
 
 ### Install
-```golang
+```go
 import "github.com/catalyst-zero/middleware-server"
 ```
 
 ### Usage
-```golang
+```go
 // Optionally define your app context to use across your middlewares.
 type AppContext struct {
   Greeting string
