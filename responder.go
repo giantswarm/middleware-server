@@ -29,3 +29,9 @@ func (response *Response) NoContent() error {
 	response.w.WriteHeader(http.StatusNoContent)
 	return nil
 }
+
+func (response *Response) Unauthorized(scheme string) error {
+	response.w.Header().Add("WWW-Authenticate", scheme)
+	response.w.WriteHeader(http.StatusUnauthorized)
+	return nil
+}
