@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gorilla/mux"
 
 	log "github.com/op/go-logging"
 	Stdlog "log"
@@ -39,9 +40,9 @@ func NewServer(host, port string) *Server {
 	}
 }
 
-func (this *Server) Serve(method, path string, middlewares ...Middleware) {
+func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	// Get version by path.
-	version := strings.Split(path, "/")[1]
+	version := strings.Split(urlPath, "/")[1]
 
 	// Create versioned router if not already set.
 	if _, ok := this.Routers[version]; !ok {
@@ -49,7 +50,11 @@ func (this *Server) Serve(method, path string, middlewares ...Middleware) {
 	}
 
 	// set handler to versioned router
-	this.Routers[version].HandleFunc(path, this.NewMiddlewareHandler(middlewares)).Methods(method)
+	this.Routers[version].HandleFunc(urlPath, this.NewMiddlewareHandler(middlewares)).Methods(method)
+}
+
+func (this *Server) ServeStatic(urlPath, fsPath string) {
+	http.Handle(urlPath, http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath))))
 }
 
 func (this *Server) Listen() {
