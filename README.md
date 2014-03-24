@@ -50,6 +50,9 @@ func main() {
 		v1.Last,
 	)
 
+	// Serve static files under route /v1/public/ using source files under ./public directory.
+	server.ServeStatic("/v1/public/", "./public")
+
 	// Start the server.
 	server.Listen()
 }
