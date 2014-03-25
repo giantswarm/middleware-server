@@ -16,10 +16,10 @@ type Logger *log.Logger
 
 type Server struct {
 	// The address to listen on.
-	addr       string
-	Logger     *log.Logger
-	Routers    map[string]*mux.Router
-	appContext interface{}
+	addr           string
+	Logger         *log.Logger
+	Routers        map[string]*mux.Router
+	ctxConstructor CtxConstructor
 }
 
 // Middleware is a http handler method.
@@ -78,8 +78,10 @@ func (this *Server) SetLogger(logger *log.Logger) {
 	this.Logger = logger
 }
 
-func (this *Server) SetAppContext(appContext interface{}) {
-	this.appContext = appContext
+type CtxConstructor func() interface{}
+
+func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
+	this.ctxConstructor = ctxConstructor
 }
 
 // Create a logger with possible levels:
@@ -111,8 +113,8 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 			},
 		}
 
-		if this.appContext != nil {
-			ctx.App = this.appContext
+		if this.ctxConstructor != nil {
+			ctx.App = this.ctxConstructor()
 		}
 
 		for _, middleware := range middlewares {

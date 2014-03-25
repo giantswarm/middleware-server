@@ -92,7 +92,10 @@ var _ = Describe("Server", func() {
 				v2.last,
 			)
 
-			srv.SetAppContext(&AppContext{})
+			ctxConstructor := func() interface{} {
+				return &AppContext{}
+			}
+			srv.SetAppContext(ctxConstructor)
 
 			// Configure test server router.
 			ts.Config.Handler = srv.Routers["v2"]
