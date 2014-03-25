@@ -12,6 +12,8 @@ import (
 	Stdlog "log"
 )
 
+type CtxConstructor func() interface{}
+
 type Logger *log.Logger
 
 type Server struct {
@@ -77,8 +79,6 @@ func (this *Server) GetRouter(version string) (*mux.Router, error) {
 func (this *Server) SetLogger(logger *log.Logger) {
 	this.Logger = logger
 }
-
-type CtxConstructor func() interface{}
 
 func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
 	this.ctxConstructor = ctxConstructor
