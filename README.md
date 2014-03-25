@@ -41,7 +41,9 @@ func main() {
 	// Create the server.
 	server := serverPkg.NewServer("127.0.0.1", "8080")
 	server.SetLogger(server.NewLogger("stm-api"))
-	server.SetAppContext(AppContext{})
+	server.SetAppContext(func() interface{} {
+		return &AppContext{}
+	})
 
 	// Create a version namespace.
 	v1 := &V1{}
