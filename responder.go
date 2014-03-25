@@ -35,3 +35,9 @@ func (response *Response) Unauthorized(scheme string) error {
 	response.w.WriteHeader(http.StatusUnauthorized)
 	return nil
 }
+
+func (response *Response) Redirect(location string, code int) error {
+  response.w.Header().Set("Location", location)
+  response.w.WriteHeader(code)
+  return nil
+}
