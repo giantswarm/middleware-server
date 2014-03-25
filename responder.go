@@ -37,7 +37,7 @@ func (response *Response) Unauthorized(scheme string) error {
 }
 
 func (response *Response) Redirect(location string, code int) error {
-  response.w.Header().Set("Location", location)
-  response.w.WriteHeader(code)
-  return nil
+	response.w.Header().Set("Location", location)
+	response.w.WriteHeader(code)
+	return nil
 }

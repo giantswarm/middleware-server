@@ -42,10 +42,12 @@ func (this *versionTwo) last(res http.ResponseWriter, req *http.Request, ctx *se
 // Test the server.
 var _ = Describe("Server", func() {
 	var (
-		ts   *httptest.Server
-		code int
-		body string
-		srv  *server.Server
+		ts    *httptest.Server
+		code1 int
+		code2 int
+		body1 string
+		body2 string
+		srv   *server.Server
 	)
 
 	BeforeEach(func() {
@@ -72,15 +74,15 @@ var _ = Describe("Server", func() {
 			// Configure test server router.
 			ts.Config.Handler = srv.Routers["v1"]
 
-			code, body, _ = test.NewGetRequest(ts.URL + "/v1/hello/")
+			code1, body1, _ = test.NewGetRequest(ts.URL + "/v1/hello/")
 		})
 
 		It("Should respond with status code 200", func() {
-			Expect(code).To(Equal(http.StatusOK))
+			Expect(code1).To(Equal(http.StatusOK))
 		})
 
 		It("Should respond with 'hello world'", func() {
-			Expect(body).To(Equal("hello world"))
+			Expect(body1).To(Equal("hello world"))
 		})
 	})
 
@@ -92,6 +94,10 @@ var _ = Describe("Server", func() {
 				v2.last,
 			)
 
+			srv.Serve("GET", "/v2/empty/",
+				v2.last,
+			)
+
 			srv.SetAppContext(func() interface{} {
 				return &AppContext{}
 			})
@@ -99,15 +105,28 @@ var _ = Describe("Server", func() {
 			// Configure test server router.
 			ts.Config.Handler = srv.Routers["v2"]
 
-			code, body, _ = test.NewGetRequest(ts.URL + "/v2/hello/")
+			code1, body1, _ = test.NewGetRequest(ts.URL + "/v2/hello/")
+			code2, body2, _ = test.NewGetRequest(ts.URL + "/v2/empty/")
 		})
 
-		It("Should respond with status code 200", func() {
-			Expect(code).To(Equal(http.StatusOK))
+		Context("Writing to app context", func() {
+			It("Should respond with status code 200", func() {
+				Expect(code1).To(Equal(http.StatusOK))
+			})
+
+			It("Should write to app context and respond with 'hello world'", func() {
+				Expect(body1).To(Equal("hello world"))
+			})
 		})
 
-		It("Should respond with 'hello world'", func() {
-			Expect(body).To(Equal("hello world"))
+		Context("Not writing to app context when it was written before", func() {
+			It("Should respond with status code 200", func() {
+				Expect(code2).To(Equal(http.StatusOK))
+			})
+
+			It("Should not write to app context and respond with empty body", func() {
+				Expect(body2).To(Equal(""))
+			})
 		})
 	})
 })
