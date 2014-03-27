@@ -14,8 +14,6 @@ import (
 
 type CtxConstructor func() interface{}
 
-type Logger *log.Logger
-
 type Server struct {
 	// The address to listen on.
 	addr           string
@@ -91,7 +89,7 @@ func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
 //   Notice
 //   Info
 //   Debug.
-func (this *Server) NewLogger(name string) Logger {
+func (this *Server) NewLogger(name string) *log.Logger {
 	logger := log.MustGetLogger(name)
 	log.SetFormatter(log.MustStringFormatter("[%{level}] %{message}"))
 	logBackend := log.NewLogBackend(os.Stderr, "", Stdlog.LstdFlags|Stdlog.Lshortfile)
