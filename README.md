@@ -5,8 +5,9 @@ Lightweight server module, handling http middlewares.
 http://godoc.org/github.com/catalyst-zero/middleware-server
 
 ### Install
-```go
-import "github.com/catalyst-zero/middleware-server"
+
+```bash
+$ go get github.com/catalyst-zero/middleware-server
 ```
 
 ### Usage
@@ -40,7 +41,7 @@ func (this *V1) Last(res http.ResponseWriter, req *http.Request, ctx *serverPkg.
 func main() {
 	// Create the server.
 	server := serverPkg.NewServer("127.0.0.1", "8080")
-	server.SetLogger(server.NewLogger("stm-api"))
+	server.SetLogger(serverPkg.NewSimpleLogger("stm-api"))
 	server.SetAppContext(func() interface{} {
 		return &AppContext{}
 	})
