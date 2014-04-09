@@ -35,7 +35,8 @@ type Context struct {
 type Server struct {
 	// The address to listen on.
 	addr           string
-	Logger         *log.Logger
+	AccessLogger   *log.Logger
+	StatusLogger   *log.Logger
 	Routers        map[string]*mux.Router
 	ctxConstructor CtxConstructor
 }
@@ -57,7 +58,9 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	}
 
 	// set handler to versioned router
-	this.Routers[version].HandleFunc(urlPath, this.NewMiddlewareHandler(middlewares)).Methods(method)
+	middlewareHandler := http.HandlerFunc(this.NewMiddlewareHandler(middlewares))
+	accessHandler := NewLogAccessHandler(DefaultAccessReporter(this.AccessLogger), middlewareHandler)
+	this.Routers[version].Handle(urlPath, accessHandler).Methods(method)
 }
 
 func (this *Server) ServeStatic(urlPath, fsPath string) {
@@ -69,7 +72,7 @@ func (this *Server) Listen() {
 		http.Handle("/"+version+"/", router)
 	}
 
-	this.Logger.Info("start service on " + this.addr)
+	this.StatusLogger.Info("start service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, nil))
 }
 
@@ -85,7 +88,15 @@ func (this *Server) GetRouter(version string) (*mux.Router, error) {
  * SetLogger sets the logger object to which the server logs every request.
  */
 func (this *Server) SetLogger(logger *log.Logger) {
-	this.Logger = logger
+	this.SetAccessLogger(logger)
+	this.SetStatusLogger(logger)
+}
+
+func (this *Server) SetAccessLogger(logger *log.Logger) {
+	this.AccessLogger = logger
+}
+func (this *Server) SetStatusLogger(logger *log.Logger) {
+	this.StatusLogger = logger
 }
 
 /**
@@ -131,7 +142,7 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 
 			// End the request with an error and stop calling further middlewares.
 			if err := middleware(res, req, ctx); err != nil {
-				this.Logger.Error("%s %s %v", req.Method, req.URL, err.Error())
+				this.logError(req, ctx, err)
 				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -140,5 +151,12 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 				break
 			}
 		}
+	}
+}
+
+// logError is called by the server-handler in case an error occurs in a middleware.
+func (this *Server) logError(req *http.Request, ctx *Context, err error) {
+	if this.StatusLogger != nil {
+		this.StatusLogger.Error("%s %s %v", req.Method, req.URL, err.Error())
 	}
 }
