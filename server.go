@@ -58,9 +58,11 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	}
 
 	// set handler to versioned router
-	middlewareHandler := http.HandlerFunc(this.NewMiddlewareHandler(middlewares))
-	accessHandler := NewLogAccessHandler(DefaultAccessReporter(this.AccessLogger), middlewareHandler)
-	this.Routers[version].Handle(urlPath, accessHandler).Methods(method)
+	handler := http.HandlerFunc(this.NewMiddlewareHandler(middlewares))
+	if this.AccessLogger != nil {
+		handler = NewLogAccessHandler(DefaultAccessReporter(this.AccessLogger), handler)
+	}
+	this.Routers[version].Handle(urlPath, handler).Methods(method)
 }
 
 func (this *Server) ServeStatic(urlPath, fsPath string) {
