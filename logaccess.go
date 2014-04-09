@@ -54,6 +54,7 @@ type AccessReporter func(entry *AccessEntry)
 
 func DefaultAccessReporter(logger *log.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
-		logger.Info("%s %s %d %d", entry.Request.Method, entry.Request.URL, entry.StatusCode, entry.Size)
+		milliseconds := int(entry.Duration / time.Millisecond)
+		logger.Info("%s %s %d %d %d", entry.Request.Method, entry.Request.URL, entry.StatusCode, entry.Size, milliseconds)
 	}
 }
