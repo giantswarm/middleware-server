@@ -34,10 +34,12 @@ type Context struct {
 
 type Server struct {
 	// The address to listen on.
-	addr           string
-	AccessLogger   *log.Logger
-	StatusLogger   *log.Logger
-	Routers        map[string]*mux.Router
+	addr         string
+	accessLogger *log.Logger
+	statusLogger *log.Logger
+
+	Routers map[string]*mux.Router
+
 	ctxConstructor CtxConstructor
 }
 
@@ -58,9 +60,9 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	}
 
 	// set handler to versioned router
-	handler := http.HandlerFunc(this.NewMiddlewareHandler(middlewares))
-	if this.AccessLogger != nil {
-		handler = NewLogAccessHandler(DefaultAccessReporter(this.AccessLogger), handler)
+	handler := this.NewMiddlewareHandler(middlewares)
+	if this.accessLogger != nil {
+		handler = NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), handler)
 	}
 	this.Routers[version].Handle(urlPath, handler).Methods(method)
 }
@@ -74,7 +76,7 @@ func (this *Server) Listen() {
 		http.Handle("/"+version+"/", router)
 	}
 
-	this.StatusLogger.Info("start service on " + this.addr)
+	this.statusLogger.Info("starting service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, nil))
 }
 
@@ -95,10 +97,10 @@ func (this *Server) SetLogger(logger *log.Logger) {
 }
 
 func (this *Server) SetAccessLogger(logger *log.Logger) {
-	this.AccessLogger = logger
+	this.accessLogger = logger
 }
 func (this *Server) SetStatusLogger(logger *log.Logger) {
-	this.StatusLogger = logger
+	this.statusLogger = logger
 }
 
 /**
@@ -121,8 +123,8 @@ func (this *Server) NewLogger(name string) *log.Logger {
 // convienience.
 //
 // The `Context.App` can be initialized by providing a CtxConstructor via `SetAppContext()`.
-func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.ResponseWriter, *http.Request) {
-	return func(res http.ResponseWriter, req *http.Request) {
+func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// Initialize fresh scope variables.
 		ctx := &Context{
 			MuxVars: mux.Vars(req),
@@ -144,7 +146,9 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 
 			// End the request with an error and stop calling further middlewares.
 			if err := middleware(res, req, ctx); err != nil {
-				this.logError(req, ctx, err)
+				if this.statusLogger != nil {
+					this.statusLogger.Error("%s %s %v", req.Method, req.URL, err.Error())
+				}
 				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -153,12 +157,5 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 				break
 			}
 		}
-	}
-}
-
-// logError is called by the server-handler in case an error occurs in a middleware.
-func (this *Server) logError(req *http.Request, ctx *Context, err error) {
-	if this.StatusLogger != nil {
-		this.StatusLogger.Error("%s %s %v", req.Method, req.URL, err.Error())
-	}
+	})
 }
