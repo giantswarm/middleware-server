@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Code heavly inspired by https://github.com/streadway/handy/blob/master/report/
+// Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
 
 type AccessEntry struct {
 	Request *http.Request
@@ -28,9 +28,7 @@ func (e *accessEntryWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-// WriteHeader captures the status code.  On success, this method may not be
-// called so initialize your event struct with the status value you wish to
-// report on success,like 200.
+// WriteHeader captures the status code and writes through to the wrapper ResponseWriter.
 func (e *accessEntryWriter) WriteHeader(code int) {
 	e.entry.StatusCode = code
 	e.ResponseWriter.WriteHeader(code)
@@ -39,7 +37,7 @@ func (e *accessEntryWriter) WriteHeader(code int) {
 // NewLogAccessHandler executes the next handler and logs the requests statistics afterwards to the logger.
 func NewLogAccessHandler(reporter AccessReporter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, req *http.Request) {
-		entry := AccessEntry{Request: req}
+		entry := AccessEntry{Request: req, StatusCode: 200}
 		start := time.Now()
 
 		next.ServeHTTP(&accessEntryWriter{response, &entry}, req)
