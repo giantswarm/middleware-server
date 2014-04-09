@@ -3,16 +3,34 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gorilla/mux"
 
 	log "github.com/op/go-logging"
-	Stdlog "log"
 )
 
 type CtxConstructor func() interface{}
+
+// Middleware is a http handler method.
+type Middleware func(http.ResponseWriter, *http.Request, *Context) error
+
+// Context is a map getting through all middlewares.
+type Context struct {
+	// Contains all placeholders from the route.
+	MuxVars map[string]string
+
+	// Helper to quickly write results to the `http.ResponseWriter`.
+	Response Response
+
+	// A middleware should call Next() to signal that no problem was encountered and
+	// the next middleware in the chain can be executed after this middleware finished.
+	// Always returns `nil`, so it can be convieniently used with return to quit the middleware.
+	Next func() error
+
+	// The app context for this request. Gets prefilled by the CtxConstructor, if set in the server.
+	App interface{}
+}
 
 type Server struct {
 	// The address to listen on.
@@ -20,17 +38,6 @@ type Server struct {
 	Logger         *log.Logger
 	Routers        map[string]*mux.Router
 	ctxConstructor CtxConstructor
-}
-
-// Middleware is a http handler method.
-type Middleware func(http.ResponseWriter, *http.Request, *Context) error
-
-// Context is a map getting through all middlewares.
-type Context struct {
-	MuxVars  map[string]string
-	Response Response
-	Next     func() error
-	App      interface{}
 }
 
 func NewServer(host, port string) *Server {
@@ -74,33 +81,35 @@ func (this *Server) GetRouter(version string) (*mux.Router, error) {
 	return this.Routers[version], nil
 }
 
+/**
+ * SetLogger sets the logger object to which the server logs every request.
+ */
 func (this *Server) SetLogger(logger *log.Logger) {
 	this.Logger = logger
 }
 
+/**
+ * SetAppContext sets the CtxConstructor object, that is called for every request to provide the initial
+ * applicationContext, that is available to every middleware via `ctx.App`.
+ */
 func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
 	this.ctxConstructor = ctxConstructor
 }
 
-// Create a logger with possible levels:
-//   Critical
-//   Error
-//   Warning
-//   Notice
-//   Info
-//   Debug.
+// NewLogger calls NewSimpleLogger().
+// DEPRECATED
 func (this *Server) NewLogger(name string) *log.Logger {
-	logger := log.MustGetLogger(name)
-	log.SetFormatter(log.MustStringFormatter("[%{level}] %{message}"))
-	logBackend := log.NewLogBackend(os.Stderr, "", Stdlog.LstdFlags|Stdlog.Lshortfile)
-	logBackend.Color = true
-	log.SetBackend(logBackend)
-
-	return logger
+	return NewSimpleLogger(name)
 }
 
-// Receiving http handler methods to prepare the ordered, sequencial execution
-// of them.
+// NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler, on activation, calls each
+// middleware in order, if no error was returned and `ctx.Next()` was called. If a middleware wants to
+// finish the processing, it can just write to the `http.ResponseWriter` or use the `ctx.Responder` for
+// convienience.
+//
+// The `Context.App` can be initialized by providing a CtxConstructor via `SetAppContext()`.
+//
+// Every request is logger to the server's logger.
 func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// Initialize fresh scope variables.
@@ -133,5 +142,7 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 				break
 			}
 		}
+
+		// We have successfully finished the request
 	}
 }
