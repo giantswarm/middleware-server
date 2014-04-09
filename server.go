@@ -108,8 +108,6 @@ func (this *Server) NewLogger(name string) *log.Logger {
 // convienience.
 //
 // The `Context.App` can be initialized by providing a CtxConstructor via `SetAppContext()`.
-//
-// Every request is logger to the server's logger.
 func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// Initialize fresh scope variables.
@@ -142,7 +140,5 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) func(http.Res
 				break
 			}
 		}
-
-		// We have successfully finished the request
 	}
 }
