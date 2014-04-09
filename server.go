@@ -90,7 +90,7 @@ func (this *Server) SetLogger(logger *log.Logger) {
 
 /**
  * SetAppContext sets the CtxConstructor object, that is called for every request to provide the initial
- * applicationContext, that is available to every middleware via `ctx.App`.
+ * `Context.App` value, which is available to every middleware.
  */
 func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
 	this.ctxConstructor = ctxConstructor
