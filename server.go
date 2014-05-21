@@ -147,7 +147,7 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler 
 			// End the request with an error and stop calling further middlewares.
 			if err := middleware(res, req, ctx); err != nil {
 				if this.statusLogger != nil {
-					this.statusLogger.Error("%s %s %v", req.Method, req.URL, err.Error())
+					this.statusLogger.Error("%s %s %#v", req.Method, req.URL, err)
 				}
 				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 				return
