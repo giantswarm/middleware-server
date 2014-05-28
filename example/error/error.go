@@ -1,7 +1,7 @@
 package main
 
 import (
-  "fmt"
+	"fmt"
 	"net/http"
 
 	srvPkg "github.com/catalyst-zero/middleware-server"

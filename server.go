@@ -60,7 +60,17 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 
 	// Create versioned router if not already set.
 	if _, ok := this.Routers[version]; !ok {
-		this.Routers[version] = mux.NewRouter()
+		// Create new router.
+		router := mux.NewRouter()
+
+		// Wrap original not found handler with the access logger.
+		if this.accessLogger != nil {
+			handler := NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), http.HandlerFunc(http.NotFound))
+			router.NotFoundHandler = handler
+		}
+
+		// Set versioned router.
+		this.Routers[version] = router
 	}
 
 	// set handler to versioned router
@@ -81,7 +91,14 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 	}
 
 	for version, _ := range this.Routers {
-		this.Routers[version].NotFoundHandler = this.NewMiddlewareHandler(middlewares)
+		handler := this.NewMiddlewareHandler(middlewares)
+
+		// Wrap original not found handler with the access logger.
+		if this.accessLogger != nil {
+			handler = NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), handler)
+		}
+
+		this.Routers[version].NotFoundHandler = handler
 	}
 }
 
