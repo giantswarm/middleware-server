@@ -25,5 +25,6 @@ _testmain.go
 .gobuild/
 
 # examples
-./not-found
-./middleware
+!example/
+not-found
+middleware
