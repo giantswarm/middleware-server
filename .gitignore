@@ -23,3 +23,7 @@ _testmain.go
 
 # Build files
 .gobuild/
+
+# examples
+not-found
+middleware
