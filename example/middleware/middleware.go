@@ -22,7 +22,7 @@ func (this *V1) middlewareTwo(res http.ResponseWriter, req *http.Request, ctx *s
 }
 
 func main() {
-	logger := srvPkg.NewSimpleLogger("not-found-example")
+	logger := srvPkg.NewSimpleLogger("middleware-example")
 	v1 := &V1{Logger: logger}
 
 	srv := srvPkg.NewServer("127.0.0.1", "8080")
