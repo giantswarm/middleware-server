@@ -1,6 +1,7 @@
 package main
 
 import (
+  "fmt"
 	"net/http"
 
 	srvPkg "github.com/catalyst-zero/middleware-server"
@@ -12,24 +13,18 @@ type V1 struct {
 }
 
 func (this *V1) middlewareOne(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	this.Logger.Debug("hello world")
-	return ctx.Response.PlainText("hello world", http.StatusOK)
-}
-
-func (this *V1) notFound(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	this.Logger.Debug("not found")
-	return ctx.Response.PlainText("not found", http.StatusOK)
+	this.Logger.Debug("error")
+	return fmt.Errorf("error")
 }
 
 func main() {
-	logger := srvPkg.NewSimpleLogger("not-found-example")
+	logger := srvPkg.NewSimpleLogger("middleware-example")
 	v1 := &V1{Logger: logger}
 
 	srv := srvPkg.NewServer("127.0.0.1", "8080")
 	srv.SetLogger(logger)
 
 	srv.Serve("GET", "/v1/hello-world", v1.middlewareOne)
-	srv.ServeNotFound(v1.notFound)
 
 	srv.Listen()
 }

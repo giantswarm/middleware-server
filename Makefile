@@ -42,8 +42,9 @@ run-tests:
 	GOPATH=$(GOPATH) go test ./...
 
 build-examples:
-	GOPATH=$(GOPATH) go build ./example/not-found/
-	GOPATH=$(GOPATH) go build ./example/middleware/
+	GOPATH=$(GOPATH) go build -o not-found.example ./example/not-found/
+	GOPATH=$(GOPATH) go build -o middleware.example ./example/middleware/
+	GOPATH=$(GOPATH) go build -o error.example ./example/error/
 
 fmt:
 	gofmt -l -w .
