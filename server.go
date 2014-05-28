@@ -1,11 +1,11 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/juju/errgo"
 
 	log "github.com/op/go-logging"
 )
@@ -51,12 +51,26 @@ func NewServer(host, port string) *Server {
 }
 
 func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
+	if len(middlewares) == 0 {
+		panic("Missing at least one Middleware-Handler. Aborting...")
+	}
+
 	// Get version by path.
 	version := strings.Split(urlPath, "/")[1]
 
 	// Create versioned router if not already set.
 	if _, ok := this.Routers[version]; !ok {
-		this.Routers[version] = mux.NewRouter()
+		// Create new router.
+		router := mux.NewRouter()
+
+		// Wrap original not found handler with the access logger.
+		if this.accessLogger != nil {
+			handler := NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), http.HandlerFunc(http.NotFound))
+			router.NotFoundHandler = handler
+		}
+
+		// Set versioned router.
+		this.Routers[version] = router
 	}
 
 	// set handler to versioned router
@@ -71,6 +85,23 @@ func (this *Server) ServeStatic(urlPath, fsPath string) {
 	http.Handle(urlPath, http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath))))
 }
 
+func (this *Server) ServeNotFound(middlewares ...Middleware) {
+	if len(middlewares) == 0 {
+		panic("Missing at least one NotFound-Handler. Aborting...")
+	}
+
+	for version, _ := range this.Routers {
+		handler := this.NewMiddlewareHandler(middlewares)
+
+		// Wrap original not found handler with the access logger.
+		if this.accessLogger != nil {
+			handler = NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), handler)
+		}
+
+		this.Routers[version].NotFoundHandler = handler
+	}
+}
+
 func (this *Server) Listen() {
 	for version, router := range this.Routers {
 		http.Handle("/"+version+"/", router)
@@ -82,7 +113,7 @@ func (this *Server) Listen() {
 
 func (this *Server) GetRouter(version string) (*mux.Router, error) {
 	if _, ok := this.Routers[version]; !ok {
-		return mux.NewRouter(), fmt.Errorf("No router configured for namespace '%s'", version)
+		return mux.NewRouter(), errgo.Newf("No router configured for namespace '%s'", version)
 	}
 
 	return this.Routers[version], nil
@@ -147,7 +178,7 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler 
 			// End the request with an error and stop calling further middlewares.
 			if err := middleware(res, req, ctx); err != nil {
 				if this.statusLogger != nil {
-					this.statusLogger.Error("%s %s %#v", req.Method, req.URL, err)
+					this.statusLogger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
 				}
 				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 				return

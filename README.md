@@ -5,61 +5,27 @@ Lightweight server module, handling http middlewares.
 http://godoc.org/github.com/catalyst-zero/middleware-server
 
 ### Install
-
 ```bash
 $ go get github.com/catalyst-zero/middleware-server
 ```
 
-### Usage
+### Import
 ```go
-package main
+import "github.com/catalyst-zero/middleware-server"
+```
 
-import (
-	serverPkg "github.com/catalyst-zero/middleware-server"
-)
-
-// Optionally define your app context to use across your middlewares.
-type AppContext struct {
-	Greeting string
-}
-
-// Define your version namespace acting as middleware receiver.
-type V1 struct{}
-
-// Define middlewares calling the next middleware.
-func (this *V1) First(res http.ResponseWriter, req *http.Request, ctx *serverPkg.Context) error {
-	// Optionally manipulate your app context for following middlewares.
-	ctx.App.(AppContext).Greeting = "hello world"
-	return ctx.Next()
-}
-
-// Define the last middleware in the chain responding to the request.
-func (this *V1) Last(res http.ResponseWriter, req *http.Request, ctx *serverPkg.Context) error {
-	return ctx.Response.PlainText(ctx.App.(AppContext).Greeting, http.StatusOK)
-}
-
-func main() {
-	// Create the server.
-	server := serverPkg.NewServer("127.0.0.1", "8080")
-	server.SetLogger(serverPkg.NewSimpleLogger("stm-api"))
-	server.SetAppContext(func() interface{} {
-		return &AppContext{}
-	})
-
-	// Create a version namespace.
-	v1 := &V1{}
-	server.Serve("GET", "/v1/foo/",
-		v1.First,
-		v1.Last,
-	)
-
-	// Serve static files under route /v1/public/ using source files under ./public directory.
-	server.ServeStatic("/v1/public/", "./public")
-
-	// Start the server.
-	server.Listen()
-}
+### Usage
+See the examples
+```bash
+make build-examples
 ```
 
 ### Responders
 http://godoc.org/github.com/catalyst-zero/middleware-server#Response
+
+### Access Logging
+There is a access logging implemented by default when setting a logger.
+```bash
+# format: date time file:line: [level] METHOD path code bytes milliseconds
+2014/05/28 12:51:22 logaccess.go:56: [INFO] GET /v1/hello-world 200 11 0
+```
