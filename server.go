@@ -52,7 +52,7 @@ func NewServer(host, port string) *Server {
 
 func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	if len(middlewares) == 0 {
-		panic("Missing at least one NotFound-Handler. Aborting...")
+		panic("Missing at least one Middleware-Handler. Aborting...")
 	}
 
 	// Get version by path.
