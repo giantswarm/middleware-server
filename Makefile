@@ -45,6 +45,7 @@ build-examples:
 	GOPATH=$(GOPATH) go build -o not-found.example ./example/not-found/
 	GOPATH=$(GOPATH) go build -o middleware.example ./example/middleware/
 	GOPATH=$(GOPATH) go build -o error.example ./example/error/
+	GOPATH=$(GOPATH) go build -o logging.example ./example/logging/
 
 fmt:
 	gofmt -l -w .
