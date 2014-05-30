@@ -22,7 +22,7 @@ func (this *V1) notFound(res http.ResponseWriter, req *http.Request, ctx *srvPkg
 }
 
 func main() {
-	logger := srvPkg.NewSimpleLogger("not-found-example")
+	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "not-found-example"})
 	v1 := &V1{Logger: logger}
 
 	srv := srvPkg.NewServer("127.0.0.1", "8080")

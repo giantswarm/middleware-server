@@ -23,7 +23,7 @@ func (this *V1) middlewareOne(res http.ResponseWriter, req *http.Request, ctx *s
 }
 
 func main() {
-	logger := srvPkg.NewSimpleLogger("middleware-example", "debug")
+	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "middleware-example", Level: "debug"})
 	v1 := &V1{Logger: logger}
 
 	srv := srvPkg.NewServer("127.0.0.1", "8080")
