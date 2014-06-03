@@ -4,22 +4,26 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	server "github.com/catalyst-zero/middleware-server"
-
 	"github.com/catalyst-zero/middleware-server/test"
+
+	srvPkg "github.com/catalyst-zero/middleware-server"
+	log "github.com/op/go-logging"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 // Define testing middlewares v1.
-type versionOne struct{}
+type V1 struct {
+	Logger *log.Logger
+}
 
-func (this *versionOne) first(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+func (this *V1) first(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
+	this.Logger.Debug("test message")
 	return ctx.Next()
 }
 
-func (this *versionOne) last(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+func (this *V1) last(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
 	return ctx.Response.PlainText("hello world", http.StatusOK)
 }
 
@@ -28,26 +32,30 @@ type AppContext struct {
 	Greeting string
 }
 
-type versionTwo struct{}
+type V2 struct {
+	Logger *log.Logger
+}
 
-func (this *versionTwo) first(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+func (this *V2) first(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
+	this.Logger.Info("test message")
 	ctx.App.(*AppContext).Greeting = "hello world"
 	return ctx.Next()
 }
 
-func (this *versionTwo) last(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+func (this *V2) last(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
 	return ctx.Response.PlainText(ctx.App.(*AppContext).Greeting, http.StatusOK)
 }
 
 // Test the server.
 var _ = Describe("Server", func() {
 	var (
-		ts    *httptest.Server
-		code1 int
-		code2 int
-		body1 string
-		body2 string
-		srv   *server.Server
+		ts     *httptest.Server
+		code1  int
+		code2  int
+		body1  string
+		body2  string
+		srv    *srvPkg.Server
+		logger *log.Logger
 	)
 
 	BeforeEach(func() {
@@ -55,7 +63,9 @@ var _ = Describe("Server", func() {
 		ts = test.NewServer(nil)
 
 		// Create app server.
-		srv = server.NewServer("", "")
+		logger = srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "test", Level: "info"})
+		srv = srvPkg.NewServer("", "")
+		srv.SetLogger(logger)
 	})
 
 	AfterEach(func() {
@@ -65,11 +75,8 @@ var _ = Describe("Server", func() {
 
 	Context("Correct middleware handling", func() {
 		BeforeEach(func() {
-			v1 := &versionOne{}
-			srv.Serve("GET", "/v1/hello/",
-				v1.first,
-				v1.last,
-			)
+			v1 := &V1{Logger: logger}
+			srv.Serve("GET", "/v1/hello/", v1.first, v1.last)
 
 			// Configure test server router.
 			ts.Config.Handler = srv.Routers["v1"]
@@ -88,15 +95,9 @@ var _ = Describe("Server", func() {
 
 	Context("App Context", func() {
 		BeforeEach(func() {
-			v2 := &versionTwo{}
-			srv.Serve("GET", "/v2/hello/",
-				v2.first,
-				v2.last,
-			)
-
-			srv.Serve("GET", "/v2/empty/",
-				v2.last,
-			)
+			v2 := &V2{Logger: logger}
+			srv.Serve("GET", "/v2/hello/", v2.first, v2.last)
+			srv.Serve("GET", "/v2/empty/", v2.last)
 
 			srv.SetAppContext(func() interface{} {
 				return &AppContext{}

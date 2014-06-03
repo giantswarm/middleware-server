@@ -142,12 +142,6 @@ func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
 	this.ctxConstructor = ctxConstructor
 }
 
-// NewLogger calls NewSimpleLogger().
-// DEPRECATED
-func (this *Server) NewLogger(name string) *log.Logger {
-	return NewSimpleLogger(name)
-}
-
 // NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler, on activation, calls each
 // middleware in order, if no error was returned and `ctx.Next()` was called. If a middleware wants to
 // finish the processing, it can just write to the `http.ResponseWriter` or use the `ctx.Responder` for
