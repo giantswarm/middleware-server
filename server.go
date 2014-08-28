@@ -102,21 +102,17 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 	}
 }
 
-func (this *Server) Listen() {
-	for version, router := range this.Routers {
-		http.Handle("/"+version+"/", router)
+func (s *Server) RegisterRoutes(mux *http.ServeMux) {
+	for version, router := range s.Routers {
+		mux.Handle("/"+version+"/", router)
 	}
+}
+
+func (this *Server) Listen() {
+	this.RegisterRoutes(http.NewServeMux())
 
 	this.statusLogger.Info("starting service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, nil))
-}
-
-func (this *Server) GetRouter(version string) (*mux.Router, error) {
-	if _, ok := this.Routers[version]; !ok {
-		return mux.NewRouter(), errgo.Newf("No router configured for namespace '%s'", version)
-	}
-
-	return this.Routers[version], nil
 }
 
 /**
