@@ -117,10 +117,11 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (this *Server) Listen() {
-	this.RegisterRoutes(http.NewServeMux())
+	mux := http.NewServeMux()
+	this.RegisterRoutes(mux)
 
 	this.statusLogger.Info("starting service on " + this.addr)
-	panic(http.ListenAndServe(this.addr, nil))
+	panic(http.ListenAndServe(this.addr, mux))
 }
 
 /**
