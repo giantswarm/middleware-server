@@ -38,6 +38,8 @@ type Server struct {
 	accessLogger *log.Logger
 	statusLogger *log.Logger
 
+	alreadyRegisteredRoutes bool
+
 	Routers map[string]*mux.Router
 
 	ctxConstructor CtxConstructor
@@ -103,9 +105,15 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 }
 
 func (s *Server) RegisterRoutes(mux *http.ServeMux) {
+	if s.alreadyRegisteredRoutes {
+		return
+	}
+
 	for version, router := range s.Routers {
 		mux.Handle("/"+version+"/", router)
 	}
+
+	s.alreadyRegisteredRoutes = true
 }
 
 func (this *Server) Listen() {
