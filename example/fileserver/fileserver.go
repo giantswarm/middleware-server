@@ -4,7 +4,8 @@ import (
 	srvPkg "github.com/catalyst-zero/middleware-server"
 )
 
-// $ curl -i http://localhost:8080/v1/public/index.html
+// $ curl -i http://localhost:8080/v1/public/
+// $ curl -i http://localhost:8080/v1/public/test.html
 //
 func main() {
 	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "middleware-example"})
