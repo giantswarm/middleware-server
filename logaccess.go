@@ -9,7 +9,9 @@ import (
 // Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
 
 type AccessEntry struct {
-	Request *http.Request
+	RequestMethod string
+	RequestURI    string
+	Request       *http.Request
 
 	Duration   time.Duration
 	StatusCode int
@@ -37,7 +39,13 @@ func (e *accessEntryWriter) WriteHeader(code int) {
 // NewLogAccessHandler executes the next handler and logs the requests statistics afterwards to the logger.
 func NewLogAccessHandler(reporter AccessReporter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, req *http.Request) {
-		entry := AccessEntry{Request: req, StatusCode: 200}
+		entry := AccessEntry{
+			RequestMethod: req.Method,
+			RequestURI:    req.RequestURI,
+
+			Request:    req,
+			StatusCode: 200,
+		}
 		start := time.Now()
 
 		next.ServeHTTP(&accessEntryWriter{response, &entry}, req)
@@ -53,6 +61,6 @@ type AccessReporter func(entry *AccessEntry)
 func DefaultAccessReporter(logger *log.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
 		milliseconds := int(entry.Duration / time.Millisecond)
-		logger.Info("%s %s %d %d %d", entry.Request.Method, entry.Request.URL, entry.StatusCode, entry.Size, milliseconds)
+		logger.Info("%s %s %d %d %d", entry.RequestMethod, entry.RequestURI, entry.StatusCode, entry.Size, milliseconds)
 	}
 }

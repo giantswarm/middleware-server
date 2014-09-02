@@ -56,35 +56,29 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	if len(middlewares) == 0 {
 		panic("Missing at least one Middleware-Handler. Aborting...")
 	}
+	handler := this.NewMiddlewareHandler(middlewares)
 
+	this.router(urlPath).Methods(method).Path(urlPath).Handler(handler)
+}
+
+// ServeStatis registers a middleware that serves files from the filesystem.
+// Example: this.ServeStatic("/v1/public", "./public_html/v1/")
+func (this *Server) ServeStatic(urlPath, fsPath string) {
+	handler := http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath)))
+	this.router(urlPath).Methods("GET").PathPrefix(urlPath).Handler(handler)
+}
+
+func (this *Server) router(urlPath string) *mux.Router {
 	// Get version by path.
 	version := strings.Split(urlPath, "/")[1]
 
 	// Create versioned router if not already set.
 	if _, ok := this.Routers[version]; !ok {
-		// Create new router.
-		router := mux.NewRouter()
-
-		// Wrap original not found handler with the access logger.
-		if this.accessLogger != nil {
-			handler := NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), http.HandlerFunc(http.NotFound))
-			router.NotFoundHandler = handler
-		}
-
 		// Set versioned router.
-		this.Routers[version] = router
+		this.Routers[version] = mux.NewRouter()
 	}
 
-	// set handler to versioned router
-	handler := this.NewMiddlewareHandler(middlewares)
-	if this.accessLogger != nil {
-		handler = NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), handler)
-	}
-	this.Routers[version].Handle(urlPath, handler).Methods(method)
-}
-
-func (this *Server) ServeStatic(urlPath, fsPath string) {
-	http.Handle(urlPath, http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath))))
+	return this.Routers[version]
 }
 
 func (this *Server) ServeNotFound(middlewares ...Middleware) {
@@ -92,14 +86,8 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 		panic("Missing at least one NotFound-Handler. Aborting...")
 	}
 
+	handler := this.NewMiddlewareHandler(middlewares)
 	for version, _ := range this.Routers {
-		handler := this.NewMiddlewareHandler(middlewares)
-
-		// Wrap original not found handler with the access logger.
-		if this.accessLogger != nil {
-			handler = NewLogAccessHandler(DefaultAccessReporter(this.accessLogger), handler)
-		}
-
 		this.Routers[version].NotFoundHandler = handler
 	}
 }
@@ -110,7 +98,11 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	}
 
 	for version, router := range s.Routers {
-		mux.Handle("/"+version+"/", router)
+		var handler http.Handler = router
+		if s.accessLogger != nil {
+			handler = NewLogAccessHandler(DefaultAccessReporter(s.accessLogger), handler)
+		}
+		mux.Handle("/"+version+"/", handler)
 	}
 
 	s.alreadyRegisteredRoutes = true
