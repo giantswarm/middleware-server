@@ -30,10 +30,18 @@ func (response *Response) NoContent() error {
 	return nil
 }
 
+// Unauthorized sends the http.StatusUnauthorized status code.
+// Use this to signal the requestee that the authentication failed.
 func (response *Response) Unauthorized(scheme string) error {
 	response.w.Header().Add("WWW-Authenticate", scheme)
 	response.w.WriteHeader(http.StatusUnauthorized)
 	return nil
+}
+
+// Forbidden sends the http.StatusForbidden status.
+// Use it to signal that the requestee has no access to the given resource (but auth itself worked).
+func (response *Response) Forbidden() error {
+	response.w.WriteHeader(http.StatusForbidden)
 }
 
 func (response *Response) Redirect(location string, code int) error {
