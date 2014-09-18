@@ -42,6 +42,7 @@ func (response *Response) Unauthorized(scheme string) error {
 // Use it to signal that the requestee has no access to the given resource (but auth itself worked).
 func (response *Response) Forbidden() error {
 	response.w.WriteHeader(http.StatusForbidden)
+	return nil
 }
 
 func (response *Response) Redirect(location string, code int) error {
