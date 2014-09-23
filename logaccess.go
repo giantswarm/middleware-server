@@ -1,9 +1,10 @@
 package server
 
 import (
-	log "github.com/op/go-logging"
 	"net/http"
 	"time"
+
+	log "github.com/op/go-logging"
 )
 
 // Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
@@ -21,6 +22,13 @@ type AccessEntry struct {
 type accessEntryWriter struct {
 	http.ResponseWriter
 	entry *AccessEntry
+}
+
+// Flush proxies http.Flusher's functionality if it is available on ResponseWriter
+func (e *accessEntryWriter) Flush() {
+	if f, ok := e.ResponseWriter.(http.Flusher); ok {
+		return f.Flush()
+	}
 }
 
 // Write sums the writes to produce the actual number of bytes written
