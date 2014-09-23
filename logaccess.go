@@ -27,7 +27,7 @@ type accessEntryWriter struct {
 // Flush proxies http.Flusher's functionality if it is available on ResponseWriter
 func (e *accessEntryWriter) Flush() {
 	if f, ok := e.ResponseWriter.(http.Flusher); ok {
-		return f.Flush()
+		f.Flush()
 	}
 }
 
