@@ -31,6 +31,12 @@ func (e *accessEntryWriter) Flush() {
 	}
 }
 
+// CloseNotify proxies http.CloseNotifier functionality
+func (e *accessEntryWriter) CloseNotify() <-chan bool {
+	cn, _ := e.ResponseWriter.(http.CloseNotifier)
+	return cn.CloseNotify()
+}
+
 // Write sums the writes to produce the actual number of bytes written
 func (e *accessEntryWriter) Write(b []byte) (int, error) {
 	n, err := e.ResponseWriter.Write(b)
