@@ -33,7 +33,7 @@ func (e *accessEntryWriter) Flush() {
 
 // CloseNotify proxies http.CloseNotifier functionality
 func (e *accessEntryWriter) CloseNotify() <-chan bool {
-	cn, _ := e.ResponseWriter.(http.CloseNotifier)
+	cn := e.ResponseWriter.(http.CloseNotifier)
 	return cn.CloseNotify()
 }
 
