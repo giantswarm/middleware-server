@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
@@ -75,23 +76,28 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 	this.Router.NotFoundHandler = this.NewMiddlewareHandler(middlewares)
 }
 
-func (s *Server) RegisterRoutes(mux *http.ServeMux) {
+func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	if s.alreadyRegisteredRoutes {
 		return
 	}
 
 	var handler http.Handler = s.Router
+
 	if s.accessLogger != nil {
 		handler = NewLogAccessHandler(DefaultAccessReporter(s.accessLogger), handler)
 	}
-	mux.Handle("/", handler)
+
+	// http.mux handlers need a trailing slash while gorilla's mux does not need one
+	// because they have different matching algorithms.
+	prefix = strings.TrimSuffix(prefix, "/")
+	mux.Handle(prefix+"/", http.StripPrefix(prefix, handler))
 
 	s.alreadyRegisteredRoutes = true
 }
 
 func (this *Server) Listen() {
 	mux := http.NewServeMux()
-	this.RegisterRoutes(mux)
+	this.RegisterRoutes(mux, "/")
 
 	this.statusLogger.Info("starting service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, mux))
