@@ -12,7 +12,7 @@ type V1 struct {
 }
 
 func (this *V1) welcomeMiddleware(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	return ctx.Response.PlainText("This is middleware!", http.StatusOK)
+	return ctx.Response.PlainText("This is welcome example 1.1.0", http.StatusOK)
 }
 
 func main() {
