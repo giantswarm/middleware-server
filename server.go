@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -14,6 +15,12 @@ type CtxConstructor func() interface{}
 
 // Middleware is a http handler method.
 type Middleware func(http.ResponseWriter, *http.Request, *Context) error
+
+func NewWelcomeMiddleware(appName, version string) Middleware {
+	return func(res http.ResponseWriter, rep *http.Request, ctx *Context) error {
+		return ctx.Response.PlainText(fmt.Sprintf("This is %s version %s", appName, version), http.StatusOK)
+	}
+}
 
 // Context is a map getting through all middlewares.
 type Context struct {
