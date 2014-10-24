@@ -40,15 +40,15 @@ type Server struct {
 
 	alreadyRegisteredRoutes bool
 
-	Routers map[string]*mux.Router
+	Router *mux.Router
 
 	ctxConstructor CtxConstructor
 }
 
 func NewServer(host, port string) *Server {
 	return &Server{
-		addr:    host + ":" + port,
-		Routers: map[string]*mux.Router{},
+		addr:   host + ":" + port,
+		Router: mux.NewRouter(),
 	}
 }
 
@@ -58,27 +58,14 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	}
 	handler := this.NewMiddlewareHandler(middlewares)
 
-	this.router(urlPath).Methods(method).Path(urlPath).Handler(handler)
+	this.Router.Methods(method).Path(urlPath).Handler(handler)
 }
 
 // ServeStatis registers a middleware that serves files from the filesystem.
 // Example: this.ServeStatic("/v1/public", "./public_html/v1/")
 func (this *Server) ServeStatic(urlPath, fsPath string) {
 	handler := http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath)))
-	this.router(urlPath).Methods("GET").PathPrefix(urlPath).Handler(handler)
-}
-
-func (this *Server) router(urlPath string) *mux.Router {
-	// Get version by path.
-	version := strings.Split(urlPath, "/")[1]
-
-	// Create versioned router if not already set.
-	if _, ok := this.Routers[version]; !ok {
-		// Set versioned router.
-		this.Routers[version] = mux.NewRouter()
-	}
-
-	return this.Routers[version]
+	this.Router.Methods("GET").PathPrefix(urlPath).Handler(handler)
 }
 
 func (this *Server) ServeNotFound(middlewares ...Middleware) {
@@ -86,31 +73,31 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 		panic("Missing at least one NotFound-Handler. Aborting...")
 	}
 
-	handler := this.NewMiddlewareHandler(middlewares)
-	for version, _ := range this.Routers {
-		this.Routers[version].NotFoundHandler = handler
-	}
+	this.Router.NotFoundHandler = this.NewMiddlewareHandler(middlewares)
 }
 
-func (s *Server) RegisterRoutes(mux *http.ServeMux) {
+func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	if s.alreadyRegisteredRoutes {
 		return
 	}
 
-	for version, router := range s.Routers {
-		var handler http.Handler = router
-		if s.accessLogger != nil {
-			handler = NewLogAccessHandler(DefaultAccessReporter(s.accessLogger), handler)
-		}
-		mux.Handle("/"+version+"/", handler)
+	var handler http.Handler = s.Router
+
+	if s.accessLogger != nil {
+		handler = NewLogAccessHandler(DefaultAccessReporter(s.accessLogger), handler)
 	}
+
+	// http.mux handlers need a trailing slash while gorilla's mux does not need one
+	// because they have different matching algorithms.
+	prefix = strings.TrimSuffix(prefix, "/")
+	mux.Handle(prefix+"/", http.StripPrefix(prefix, handler))
 
 	s.alreadyRegisteredRoutes = true
 }
 
 func (this *Server) Listen() {
 	mux := http.NewServeMux()
-	this.RegisterRoutes(mux)
+	this.RegisterRoutes(mux, "/")
 
 	this.statusLogger.Info("starting service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, mux))
