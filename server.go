@@ -45,6 +45,9 @@ type Server struct {
 	accessLogger *log.Logger
 	statusLogger *log.Logger
 
+	preHTTPHandler  AccessReporter
+	postHTTPHandler AccessReporter
+
 	alreadyRegisteredRoutes bool
 
 	Router *mux.Router
@@ -91,7 +94,12 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	var handler http.Handler = s.Router
 
 	if s.accessLogger != nil {
-		handler = NewLogAccessHandler(DefaultAccessReporter(s.accessLogger), handler)
+		handler = NewLogAccessHandler(
+			DefaultAccessReporter(s.accessLogger),
+			s.preHTTPHandler,
+			s.postHTTPHandler,
+			handler,
+		)
 	}
 
 	// http.mux handlers need a trailing slash while gorilla's mux does not need one
@@ -108,6 +116,14 @@ func (this *Server) Listen() {
 
 	this.statusLogger.Info("starting service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, mux))
+}
+
+func (s *Server) SetPreHTTPHandler(reporter AccessReporter) {
+	s.preHTTPHandler = reporter
+}
+
+func (s *Server) SetPostHTTPHandler(reporter AccessReporter) {
+	s.postHTTPHandler = reporter
 }
 
 /**

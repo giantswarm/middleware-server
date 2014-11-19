@@ -51,7 +51,7 @@ func (e *accessEntryWriter) WriteHeader(code int) {
 }
 
 // NewLogAccessHandler executes the next handler and logs the requests statistics afterwards to the logger.
-func NewLogAccessHandler(reporter AccessReporter, next http.Handler) http.Handler {
+func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, req *http.Request) {
 		entry := AccessEntry{
 			RequestMethod: req.Method,
@@ -62,7 +62,15 @@ func NewLogAccessHandler(reporter AccessReporter, next http.Handler) http.Handle
 		}
 		start := time.Now()
 
+		if preHTTP != nil {
+			preHTTP(&entry)
+		}
+
 		next.ServeHTTP(&accessEntryWriter{response, &entry}, req)
+
+		if postHTTP != nil {
+			postHTTP(&entry)
+		}
 
 		entry.Duration = time.Since(start)
 
