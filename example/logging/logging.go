@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	srvPkg "github.com/catalyst-zero/middleware-server"
@@ -19,8 +18,6 @@ func (this *V1) middlewareOne(res http.ResponseWriter, req *http.Request, ctx *s
 	this.Logger.Notice("middleware %s", "one")
 	this.Logger.Info("middleware %s", "one")
 	this.Logger.Debug("middleware %s", "one")
-
-	fmt.Printf("%#v\n", req.Header["Authorization"])
 
 	return ctx.Response.PlainText("hello world", http.StatusOK)
 }
