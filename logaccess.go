@@ -68,11 +68,11 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 
 		next.ServeHTTP(&accessEntryWriter{response, &entry}, req)
 
+		entry.Duration = time.Since(start)
+
 		if postHTTP != nil {
 			postHTTP(&entry)
 		}
-
-		entry.Duration = time.Since(start)
 
 		reporter(&entry)
 	})
