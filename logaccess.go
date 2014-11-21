@@ -74,11 +74,11 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 		// is executed. Otherwise the correct mux context is not given.
 		route := mux.CurrentRoute(req)
 		if route != nil {
-			entry.RouteName = route.GetName()
+			entry.RouteName = "route." + route.GetName()
 		}
 
 		if entry.RouteName == "" {
-			entry.RouteName = "route-not-found"
+			entry.RouteName = "route.route-not-found"
 		}
 
 		entry.Duration = time.Since(start)
