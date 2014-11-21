@@ -4,12 +4,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	log "github.com/op/go-logging"
 )
 
 // Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
 
 type AccessEntry struct {
+	RouteName     string
 	RequestMethod string
 	RequestURI    string
 	Request       *http.Request
@@ -67,6 +69,13 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 		}
 
 		next.ServeHTTP(&accessEntryWriter{response, &entry}, req)
+
+		// Note, fetching a routes name needs to be done AFTER the routers handler
+		// is executed. Otherwise the correct mux context is not given.
+		route := mux.CurrentRoute(req)
+		if route != nil {
+			entry.RouteName = route.GetName()
+		}
 
 		entry.Duration = time.Since(start)
 
