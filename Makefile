@@ -49,6 +49,7 @@ build-examples:
 	GOPATH=$(GOPATH) go build -o fileserver.example ./example/fileserver/
 	GOPATH=$(GOPATH) go build -o welcome.example ./example/welcome/
 	GOPATH=$(GOPATH) go build -o mux-cooperation.example ./example/mux-cooperation/
+	GOPATH=$(GOPATH) go build -o request-callback.example ./example/request-callback/
 
 fmt:
 	gofmt -l -w .

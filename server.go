@@ -45,6 +45,9 @@ type Server struct {
 	accessLogger *log.Logger
 	statusLogger *log.Logger
 
+	preHTTPHandler  AccessReporter
+	postHTTPHandler AccessReporter
+
 	alreadyRegisteredRoutes bool
 
 	Router *mux.Router
@@ -53,9 +56,13 @@ type Server struct {
 }
 
 func NewServer(host, port string) *Server {
+	// We want to apply route names and need the context to be kept.
+	router := mux.NewRouter()
+	router.KeepContext = true
+
 	return &Server{
 		addr:   host + ":" + port,
-		Router: mux.NewRouter(),
+		Router: router,
 	}
 }
 
@@ -65,7 +72,7 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	}
 	handler := this.NewMiddlewareHandler(middlewares)
 
-	this.Router.Methods(method).Path(urlPath).Handler(handler)
+	this.Router.Methods(method).Path(urlPath).Handler(handler).Name(method + " " + urlPath)
 }
 
 // ServeStatis registers a middleware that serves files from the filesystem.
@@ -91,7 +98,12 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	var handler http.Handler = s.Router
 
 	if s.accessLogger != nil {
-		handler = NewLogAccessHandler(DefaultAccessReporter(s.accessLogger), handler)
+		handler = NewLogAccessHandler(
+			DefaultAccessReporter(s.accessLogger),
+			s.preHTTPHandler,
+			s.postHTTPHandler,
+			handler,
+		)
 	}
 
 	// http.mux handlers need a trailing slash while gorilla's mux does not need one
@@ -108,6 +120,14 @@ func (this *Server) Listen() {
 
 	this.statusLogger.Info("starting service on " + this.addr)
 	panic(http.ListenAndServe(this.addr, mux))
+}
+
+func (s *Server) SetPreHTTPHandler(reporter AccessReporter) {
+	s.preHTTPHandler = reporter
+}
+
+func (s *Server) SetPostHTTPHandler(reporter AccessReporter) {
+	s.postHTTPHandler = reporter
 }
 
 /**
