@@ -72,30 +72,7 @@ func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	}
 	handler := this.NewMiddlewareHandler(middlewares)
 
-	this.Router.Methods(method).Path(urlPath).Handler(handler).Name(routeName(urlPath))
-}
-
-func routeName(urlPath string) string {
-	if urlPath == "/" {
-		return "/"
-	}
-
-	validItems := []string{}
-	splittedBySlash := strings.Split(urlPath, "/")
-
-	for _, item := range splittedBySlash {
-		if item == "" {
-			continue
-		}
-
-		if item[:1] == "{" && item[len(item)-1:] == "}" {
-			continue
-		}
-
-		validItems = append(validItems, item)
-	}
-
-	return strings.Join(validItems, "/")
+	this.Router.Methods(method).Path(urlPath).Handler(handler).Name(method + " " + urlPath)
 }
 
 // ServeStatis registers a middleware that serves files from the filesystem.
