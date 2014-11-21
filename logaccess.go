@@ -77,6 +77,10 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 			entry.RouteName = route.GetName()
 		}
 
+		if entry.RouteName == "" {
+			entry.RouteName = "route-not-found"
+		}
+
 		entry.Duration = time.Since(start)
 
 		if postHTTP != nil {
