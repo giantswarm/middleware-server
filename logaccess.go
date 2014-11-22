@@ -11,14 +11,42 @@ import (
 // Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
 
 type AccessEntry struct {
-	RouteName     string
-	RequestMethod string
-	RequestURI    string
-	Request       *http.Request
+	routeName     string
+	requestMethod string
+	requestURI    string
+	request       *http.Request
 
-	Duration   time.Duration
-	StatusCode int
-	Size       int64
+	duration   time.Duration
+	statusCode int
+	size       int64
+}
+
+func (ae *AccessEntry) RouteName() string {
+	return ae.routeName
+}
+
+func (ae *AccessEntry) RequestMethod() string {
+	return ae.requestMethod
+}
+
+func (ae *AccessEntry) RequestURI() string {
+	return ae.requestURI
+}
+
+func (ae *AccessEntry) Request() *http.Request {
+	return ae.request
+}
+
+func (ae *AccessEntry) Duration() time.Duration {
+	return ae.duration
+}
+
+func (ae *AccessEntry) StatusCode() int {
+	return ae.statusCode
+}
+
+func (ae *AccessEntry) Size() int64 {
+	return ae.size
 }
 
 type accessEntryWriter struct {
@@ -42,13 +70,13 @@ func (e *accessEntryWriter) CloseNotify() <-chan bool {
 // Write sums the writes to produce the actual number of bytes written
 func (e *accessEntryWriter) Write(b []byte) (int, error) {
 	n, err := e.ResponseWriter.Write(b)
-	e.entry.Size += int64(n)
+	e.entry.size += int64(n)
 	return n, err
 }
 
 // WriteHeader captures the status code and writes through to the wrapper ResponseWriter.
 func (e *accessEntryWriter) WriteHeader(code int) {
-	e.entry.StatusCode = code
+	e.entry.statusCode = code
 	e.ResponseWriter.WriteHeader(code)
 }
 
@@ -56,11 +84,11 @@ func (e *accessEntryWriter) WriteHeader(code int) {
 func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, req *http.Request) {
 		entry := AccessEntry{
-			RequestMethod: req.Method,
-			RequestURI:    req.RequestURI,
+			requestMethod: req.Method,
+			requestURI:    req.RequestURI,
 
-			Request:    req,
-			StatusCode: 200,
+			request:    req,
+			statusCode: 200,
 		}
 		start := time.Now()
 
@@ -74,14 +102,14 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 		// is executed. Otherwise the correct mux context is not given.
 		route := mux.CurrentRoute(req)
 		if route != nil {
-			entry.RouteName = "route " + route.GetName()
+			entry.routeName = route.GetName()
 		}
 
-		if entry.RouteName == "" {
-			entry.RouteName = "route " + req.Method + " route-not-found"
+		if entry.routeName == "" {
+			entry.routeName = req.Method + " route-not-found"
 		}
 
-		entry.Duration = time.Since(start)
+		entry.duration = time.Since(start)
 
 		if postHTTP != nil {
 			postHTTP(&entry)
@@ -95,7 +123,7 @@ type AccessReporter func(entry *AccessEntry)
 
 func DefaultAccessReporter(logger *log.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
-		milliseconds := int(entry.Duration / time.Millisecond)
-		logger.Info("%s %s %d %d %d", entry.RequestMethod, entry.RequestURI, entry.StatusCode, entry.Size, milliseconds)
+		milliseconds := int(entry.duration / time.Millisecond)
+		logger.Info("%s %s %d %d %d", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds)
 	}
 }
