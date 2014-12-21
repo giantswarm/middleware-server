@@ -2,8 +2,12 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
@@ -118,8 +122,42 @@ func (this *Server) Listen() {
 	mux := http.NewServeMux()
 	this.RegisterRoutes(mux, "/")
 
-	this.statusLogger.Info("starting service on " + this.addr)
-	panic(http.ListenAndServe(this.addr, mux))
+	listener, err := net.Listen("tcp", this.addr)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		this.statusLogger.Info("starting server on " + this.addr)
+		if err := http.Serve(listener, mux); err != nil {
+			if _, ok := err.(*net.OpError); ok {
+				// We ignore the error "use of closed network connection", because it is
+				// caused by us when shutting down the server.
+			} else {
+				this.statusLogger.Error("%#v", errgo.Mask(err))
+			}
+		}
+	}()
+
+	// Set up channel on which to send signal notifications.
+	// We must use a buffered channel or risk missing the signal
+	// if we're not ready to receive when the signal is sent.
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, os.Kill)
+
+	// Block until a signal is received.
+	s := <-c
+	this.statusLogger.Info("server received signal %s", s)
+	time.Sleep(3 * time.Second)
+
+	this.statusLogger.Info("closing tcp listener")
+	listener.Close()
+
+	this.statusLogger.Info("waiting for established connections to finish")
+	time.Sleep(3 * time.Second)
+
+	this.statusLogger.Info("shutting down server")
+	os.Exit(0)
 }
 
 func (s *Server) SetPreHTTPHandler(reporter AccessReporter) {
