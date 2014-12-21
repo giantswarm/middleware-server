@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	log "github.com/op/go-logging"
 )
 
@@ -36,13 +38,13 @@ func (s *Server) SetAppContext(ctxConstructor CtxConstructor) {
 // SetCloseListenerDelay sets the time to delay closing the TCP listener when
 // calling `s.Close()`.
 func (s *Server) SetCloseListenerDelay(d int) {
-	s.closeListenerDelay = d
+	s.closeListenerDelay = time.Duration(d) * time.Second
 }
 
 // SetOsExitDelay sets the time to delay exiting the process when calling
 // `s.Close()`.
 func (s *Server) SetOsExitDelay(d int) {
-	s.osExitDelay = d
+	s.osExitDelay = time.Duration(d) * time.Second
 }
 
 // SetOsExitCode sets the exit code used in `os.Exit(c)` when calling

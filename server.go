@@ -15,6 +15,12 @@ import (
 	log "github.com/op/go-logging"
 )
 
+const (
+	DefaultCloseListenerDelay = 0
+	DefaultOsExitDelay        = 3
+	DefaultOsExitCode         = 0
+)
+
 type CtxConstructor func() interface{}
 
 // Middleware is a http handler method.
@@ -53,8 +59,8 @@ type Server struct {
 
 	ctxConstructor CtxConstructor
 
-	closeListenerDelay int
-	osExitDelay        int
+	closeListenerDelay time.Duration
+	osExitDelay        time.Duration
 	osExitCode         int
 }
 
@@ -63,14 +69,16 @@ func NewServer(host, port string) *Server {
 	router := mux.NewRouter()
 	router.KeepContext = true
 
-	return &Server{
+	s := &Server{
 		addr:   host + ":" + port,
 		Router: router,
-
-		closeListenerDelay: 0,
-		osExitDelay:        3,
-		osExitCode:         0,
 	}
+
+	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
+	s.SetOsExitDelay(DefaultOsExitDelay)
+	s.SetOsExitCode(DefaultOsExitCode)
+
+	return s
 }
 
 func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
@@ -156,15 +164,14 @@ func (s *Server) Listen() {
 }
 
 func (s *Server) Close() {
-	time.Sleep(time.Duration(s.closeListenerDelay) * time.Second)
-
-	s.statusLogger.Info("closing tcp listener")
+	s.statusLogger.Info("closing tcp listener in %s", s.closeListenerDelay.String())
+	time.Sleep(s.closeListenerDelay)
 	s.listener.Close()
 
-	s.statusLogger.Info("waiting for established connections to finish")
-	time.Sleep(time.Duration(s.osExitDelay) * time.Second)
+	s.statusLogger.Info("shutting down server in %s", s.osExitDelay.String())
+	time.Sleep(s.osExitDelay)
 
-	s.statusLogger.Info("shutting down server")
+	s.statusLogger.Info("shutting down server with exit code %d", s.osExitCode)
 	os.Exit(s.osExitCode)
 }
 
