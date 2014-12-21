@@ -21,6 +21,7 @@ func (s *Server) SetLogger(logger *log.Logger) {
 func (s *Server) SetAccessLogger(logger *log.Logger) {
 	s.accessLogger = logger
 }
+
 func (s *Server) SetStatusLogger(logger *log.Logger) {
 	s.statusLogger = logger
 }
@@ -30,4 +31,22 @@ func (s *Server) SetStatusLogger(logger *log.Logger) {
 // every middleware.
 func (s *Server) SetAppContext(ctxConstructor CtxConstructor) {
 	s.ctxConstructor = ctxConstructor
+}
+
+// SetCloseListenerDelay sets the time to delay closing the TCP listener when
+// calling `s.Close()`.
+func (s *Server) SetCloseListenerDelay(d int) {
+	s.closeListenerDelay = d
+}
+
+// SetOsExitDelay sets the time to delay exiting the process when calling
+// `s.Close()`.
+func (s *Server) SetOsExitDelay(d int) {
+	s.osExitDelay = d
+}
+
+// SetOsExitCode sets the exit code used in `os.Exit(c)` when calling
+// `s.Close()`.
+func (s *Server) SetOsExitCode(c int) {
+	s.osExitCode = c
 }
