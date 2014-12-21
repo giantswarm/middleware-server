@@ -53,9 +53,9 @@ type Server struct {
 
 	ctxConstructor CtxConstructor
 
-	closeListenerDealay int
-	osExitDelay         int
-	osExitCode          int
+	closeListenerDelay int
+	osExitDelay        int
+	osExitCode         int
 }
 
 func NewServer(host, port string) *Server {
@@ -67,9 +67,9 @@ func NewServer(host, port string) *Server {
 		addr:   host + ":" + port,
 		Router: router,
 
-		closeListenerDealay: 0,
-		osExitDelay:         3,
-		osExitCode:          0,
+		closeListenerDelay: 0,
+		osExitDelay:        3,
+		osExitCode:         0,
 	}
 }
 
@@ -156,7 +156,7 @@ func (s *Server) Listen() {
 }
 
 func (s *Server) Close() {
-	time.Sleep(time.Duration(s.closeListenerDealay) * time.Second)
+	time.Sleep(time.Duration(s.closeListenerDelay) * time.Second)
 
 	s.statusLogger.Info("closing tcp listener")
 	s.listener.Close()
