@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -20,12 +19,6 @@ type CtxConstructor func() interface{}
 
 // Middleware is a http handler method.
 type Middleware func(http.ResponseWriter, *http.Request, *Context) error
-
-func NewWelcomeMiddleware(appName, version string) Middleware {
-	return func(res http.ResponseWriter, rep *http.Request, ctx *Context) error {
-		return ctx.Response.PlainText(fmt.Sprintf("This is %s version %s\n", appName, version), http.StatusOK)
-	}
-}
 
 // Context is a map getting through all middlewares.
 type Context struct {
@@ -49,6 +42,7 @@ type Server struct {
 	addr         string
 	accessLogger *log.Logger
 	statusLogger *log.Logger
+	listener     net.Listener
 
 	preHTTPHandler  AccessReporter
 	postHTTPHandler AccessReporter
@@ -58,6 +52,10 @@ type Server struct {
 	Router *mux.Router
 
 	ctxConstructor CtxConstructor
+
+	closeListenerDealay int
+	osExitDelay         int
+	osExitCode          int
 }
 
 func NewServer(host, port string) *Server {
@@ -68,6 +66,10 @@ func NewServer(host, port string) *Server {
 	return &Server{
 		addr:   host + ":" + port,
 		Router: router,
+
+		closeListenerDealay: 0,
+		osExitDelay:         3,
+		osExitCode:          0,
 	}
 }
 
@@ -119,23 +121,23 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	s.alreadyRegisteredRoutes = true
 }
 
-func (this *Server) Listen() {
+func (s *Server) Listen() {
 	mux := http.NewServeMux()
-	this.RegisterRoutes(mux, "/")
+	s.RegisterRoutes(mux, "/")
 
-	listener, err := net.Listen("tcp", this.addr)
-	if err != nil {
+	var err error
+	if s.listener, err = net.Listen("tcp", s.addr); err != nil {
 		panic(err)
 	}
 
 	go func() {
-		this.statusLogger.Info("starting server on " + this.addr)
-		if err := http.Serve(listener, mux); err != nil {
+		s.statusLogger.Info("starting server on " + s.addr)
+		if err := http.Serve(s.listener, mux); err != nil {
 			if _, ok := err.(*net.OpError); ok {
 				// We ignore the error "use of closed network connection", because it is
 				// caused by us when shutting down the server.
 			} else {
-				this.statusLogger.Error("%#v", errgo.Mask(err))
+				s.statusLogger.Error("%#v", errgo.Mask(err))
 			}
 		}
 	}()
@@ -147,57 +149,33 @@ func (this *Server) Listen() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
 	// Block until a signal is received.
-	s := <-c
-	this.statusLogger.Info("server received signal %s", s)
-	time.Sleep(3 * time.Second)
+	sig := <-c
+	s.statusLogger.Info("server received signal %s", sig)
 
-	this.statusLogger.Info("closing tcp listener")
-	listener.Close()
-
-	this.statusLogger.Info("waiting for established connections to finish")
-	time.Sleep(3 * time.Second)
-
-	this.statusLogger.Info("shutting down server")
-	os.Exit(0)
+	s.Close()
 }
 
-func (s *Server) SetPreHTTPHandler(reporter AccessReporter) {
-	s.preHTTPHandler = reporter
+func (s *Server) Close() {
+	time.Sleep(time.Duration(s.closeListenerDealay) * time.Second)
+
+	s.statusLogger.Info("closing tcp listener")
+	s.listener.Close()
+
+	s.statusLogger.Info("waiting for established connections to finish")
+	time.Sleep(time.Duration(s.osExitDelay) * time.Second)
+
+	s.statusLogger.Info("shutting down server")
+	os.Exit(s.osExitCode)
 }
 
-func (s *Server) SetPostHTTPHandler(reporter AccessReporter) {
-	s.postHTTPHandler = reporter
-}
-
-/**
- * SetLogger sets the logger object to which the server logs every request.
- */
-func (this *Server) SetLogger(logger *log.Logger) {
-	this.SetAccessLogger(logger)
-	this.SetStatusLogger(logger)
-}
-
-func (this *Server) SetAccessLogger(logger *log.Logger) {
-	this.accessLogger = logger
-}
-func (this *Server) SetStatusLogger(logger *log.Logger) {
-	this.statusLogger = logger
-}
-
-/**
- * SetAppContext sets the CtxConstructor object, that is called for every request to provide the initial
- * `Context.App` value, which is available to every middleware.
- */
-func (this *Server) SetAppContext(ctxConstructor CtxConstructor) {
-	this.ctxConstructor = ctxConstructor
-}
-
-// NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler, on activation, calls each
-// middleware in order, if no error was returned and `ctx.Next()` was called. If a middleware wants to
-// finish the processing, it can just write to the `http.ResponseWriter` or use the `ctx.Responder` for
+// NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler,
+// on activation, calls each middleware in order, if no error was returned and
+// `ctx.Next()` was called. If a middleware wants to finish the processing, it
+// can just write to the `http.ResponseWriter` or use the `ctx.Responder` for
 // convienience.
 //
-// The `Context.App` can be initialized by providing a CtxConstructor via `SetAppContext()`.
+// The `Context.App` can be initialized by providing a CtxConstructor via
+// `SetAppContext()`.
 func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// Initialize fresh scope variables.
