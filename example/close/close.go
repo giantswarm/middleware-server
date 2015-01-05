@@ -6,10 +6,6 @@ import (
 	srvPkg "github.com/catalyst-zero/middleware-server"
 )
 
-var (
-	closed bool
-)
-
 func main() {
 	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "close", Level: "debug"})
 
@@ -21,12 +17,7 @@ func main() {
 	srv.SetOsExitCode(1)
 
 	srv.Serve("GET", "/", func(res http.ResponseWriter, rep *http.Request, ctx *srvPkg.Context) error {
-		if !closed {
-			go func() {
-				closed = true
-				srv.Close()
-			}()
-		}
+		go srv.Close()
 
 		return ctx.Response.PlainText("This is the close example.\n", http.StatusOK)
 	})

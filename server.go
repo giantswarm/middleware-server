@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -59,6 +60,7 @@ type Server struct {
 
 	ctxConstructor CtxConstructor
 
+	signalCounter      uint32
 	closeListenerDelay time.Duration
 	osExitDelay        time.Duration
 	osExitCode         int
@@ -150,20 +152,32 @@ func (s *Server) Listen() {
 		}
 	}()
 
+	s.listenSignals()
+}
+
+func (s *Server) listenSignals() {
 	// Set up channel on which to send signal notifications.
 	// We must use a buffered channel or risk missing the signal
 	// if we're not ready to receive when the signal is sent.
-	c := make(chan os.Signal, 1)
+	c := make(chan os.Signal, 2)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
 	// Block until a signal is received.
-	sig := <-c
-	s.statusLogger.Info("server received signal %s", sig)
-
-	s.Close()
+	for {
+		select {
+		case sig := <-c:
+			s.statusLogger.Info("server received signal %s", sig)
+			go s.Close()
+		}
+	}
 }
 
 func (s *Server) Close() {
+	// Interrupt the process when closing is requested twice.
+	if atomic.AddUint32(&s.signalCounter, 1) >= 2 {
+		s.ExitProcess()
+	}
+
 	s.statusLogger.Info("closing tcp listener in %s", s.closeListenerDelay.String())
 	time.Sleep(s.closeListenerDelay)
 	s.listener.Close()
@@ -171,6 +185,10 @@ func (s *Server) Close() {
 	s.statusLogger.Info("shutting down server in %s", s.osExitDelay.String())
 	time.Sleep(s.osExitDelay)
 
+	s.ExitProcess()
+}
+
+func (s *Server) ExitProcess() {
 	s.statusLogger.Info("shutting down server with exit code %d", s.osExitCode)
 	os.Exit(s.osExitCode)
 }
