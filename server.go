@@ -59,7 +59,6 @@ type Server struct {
 
 	ctxConstructor CtxConstructor
 
-	signal             os.Signal
 	signalCounter      int
 	closeListenerDelay time.Duration
 	osExitDelay        time.Duration
@@ -165,8 +164,8 @@ func (s *Server) listenSignals() {
 	// Block until a signal is received.
 	for {
 		select {
-		case s.signal = <-c:
-			s.statusLogger.Info("server received signal %s", s.signal)
+		case sig := <-c:
+			s.statusLogger.Info("server received signal %s", sig)
 			go s.Close()
 		}
 	}
