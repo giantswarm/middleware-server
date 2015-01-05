@@ -175,7 +175,7 @@ func (s *Server) Close() {
 	s.signalCounter++
 
 	// Interrupt the process when closing is requested twice.
-	if s.signalCounter == 2 {
+	if s.signalCounter >= 2 {
 		s.ExitProcess()
 	}
 
