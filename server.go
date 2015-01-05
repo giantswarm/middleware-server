@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -59,7 +60,7 @@ type Server struct {
 
 	ctxConstructor CtxConstructor
 
-	signalCounter      int
+	signalCounter      uint32
 	closeListenerDelay time.Duration
 	osExitDelay        time.Duration
 	osExitCode         int
@@ -172,10 +173,8 @@ func (s *Server) listenSignals() {
 }
 
 func (s *Server) Close() {
-	s.signalCounter++
-
 	// Interrupt the process when closing is requested twice.
-	if s.signalCounter >= 2 {
+	if atomic.AddUint32(&s.signalCounter, 1) >= 2 {
 		s.ExitProcess()
 	}
 
