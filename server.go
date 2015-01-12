@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
 
@@ -122,6 +123,9 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 			handler,
 		)
 	}
+
+	// Always cleanup gorilla context request variables
+	handler = context.ClearHandler(handler)
 
 	// http.mux handlers need a trailing slash while gorilla's mux does not need one
 	// because they have different matching algorithms.
