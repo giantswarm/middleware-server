@@ -10,10 +10,10 @@ const (
 )
 
 type HealthInfo struct {
-	Status   string
-	App      string
-	Version  string
-	Backends []HealthInfo
+	Status   string       `json:"status"`
+	App      string       `json:"app"`
+	Version  string       `json:"version"`
+	Backends []HealthInfo `json:"backends"`
 }
 
 type Healthchecker func() (HealthInfo, error)
