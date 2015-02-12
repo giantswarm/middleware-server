@@ -79,7 +79,7 @@ var _ = Describe("Server", func() {
 			srv.Serve("GET", "/v1/hello/", v1.first, v1.last)
 
 			// Configure test server router.
-			ts.Config.Handler = srv.Routers["v1"]
+			ts.Config.Handler = srv.Router
 
 			code1, body1, _ = test.NewGetRequest(ts.URL + "/v1/hello/")
 		})
@@ -104,7 +104,7 @@ var _ = Describe("Server", func() {
 			})
 
 			// Configure test server router.
-			ts.Config.Handler = srv.Routers["v2"]
+			ts.Config.Handler = srv.Router
 
 			code1, body1, _ = test.NewGetRequest(ts.URL + "/v2/hello/")
 			code2, body2, _ = test.NewGetRequest(ts.URL + "/v2/empty/")
