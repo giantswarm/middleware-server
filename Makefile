@@ -2,7 +2,7 @@ PROJECT=middleware-server
 
 BUILD_PATH := $(shell pwd)/.gobuild
 
-PROJECT_PATH := "$(BUILD_PATH)/src/github.com/catalyst-zero"
+PROJECT_PATH := "$(BUILD_PATH)/src/github.com/giantswarm"
 
 BIN := $(PROJECT)
 
@@ -28,7 +28,7 @@ get-deps: .gobuild
 
 	#
 	# Fetch public dependencies via `go get`
-	GOPATH=$(GOPATH) go get -d -v github.com/catalyst-zero/$(PROJECT)
+	GOPATH=$(GOPATH) go get -d -v github.com/giantswarm/$(PROJECT)
 
 	#
 	# Build test packages (we only want those two, so we use `-d` in go get)

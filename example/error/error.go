@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	srvPkg "github.com/catalyst-zero/middleware-server"
+	srvPkg "github.com/giantswarm/middleware-server"
 	logPkg "github.com/op/go-logging"
 )
 
