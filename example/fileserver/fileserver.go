@@ -1,7 +1,7 @@
 package main
 
 import (
-	srvPkg "github.com/catalyst-zero/middleware-server"
+	srvPkg "github.com/giantswarm/middleware-server"
 )
 
 // $ curl -i http://localhost:8080/v1/public/

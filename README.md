@@ -2,16 +2,16 @@
 Lightweight server module, handling http middlewares.
 
 ### Docs
-http://godoc.org/github.com/catalyst-zero/middleware-server
+http://godoc.org/github.com/giantswarm/middleware-server
 
 ### Install
 ```bash
-$ go get github.com/catalyst-zero/middleware-server
+$ go get github.com/giantswarm/middleware-server
 ```
 
 ### Import
 ```go
-import "github.com/catalyst-zero/middleware-server"
+import "github.com/giantswarm/middleware-server"
 ```
 
 ### Usage
@@ -21,7 +21,7 @@ make build-examples
 ```
 
 ### Responders
-http://godoc.org/github.com/catalyst-zero/middleware-server#Response
+http://godoc.org/github.com/giantswarm/middleware-server#Response
 
 ### Access Logging
 There is a access logging implemented by default when setting a logger.
