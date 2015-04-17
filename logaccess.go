@@ -127,3 +127,11 @@ func DefaultAccessReporter(logger *log.Logger) AccessReporter {
 		logger.Info("%s %s %d %d %d", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds)
 	}
 }
+
+// ExtendedAccessReporter createsan access logger that logs everything that DefaultAccessReporter does with the User-Agent added to that
+func ExtendedAccessReporter(logger *log.Logger) AccessReporter {
+	return func(entry *AccessEntry) {
+		milliseconds := int(entry.duration / time.Millisecond)
+		logger.Info("%s %s %d %d %d %s", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds, entry.Request().Header.Get("User-Agent"))
+	}
+}
