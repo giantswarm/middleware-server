@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"time"
 
@@ -78,6 +80,16 @@ func (e *accessEntryWriter) Write(b []byte) (int, error) {
 func (e *accessEntryWriter) WriteHeader(code int) {
 	e.entry.statusCode = code
 	e.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack lets the caller take over the connection.
+// After a call to Hijack(), the HTTP server library
+// will not do anything else with the connection.
+// It becomes the caller's responsibility to manage
+// and close the connection.
+func (e *accessEntryWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker := e.ResponseWriter.(http.Hijacker)
+	return hijacker.Hijack()
 }
 
 // NewLogAccessHandler executes the next handler and logs the requests statistics afterwards to the logger.
