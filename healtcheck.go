@@ -18,7 +18,7 @@ type HealthInfo struct {
 
 type Healthchecker func() (HealthInfo, error)
 
-// Status just accumulates the backends stati to calculate the main status.
+// Status just accumulates the backends status to calculate the main status.
 func (hc Healthchecker) Status() (HealthInfo, error) {
 	info, err := hc()
 	if err != nil {
