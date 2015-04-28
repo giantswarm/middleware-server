@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	srvPkg "github.com/catalyst-zero/middleware-server"
+	srvPkg "github.com/giantswarm/middleware-server"
 )
 
 func main() {

@@ -10,8 +10,9 @@ import (
 )
 
 type LoggerOptions struct {
-	Name  string
-	Level string
+	Name    string
+	Level   string
+	NoColor bool
 }
 
 // NewSimpleLogger creates a new logger with a default backend logging to `os.Stderr`.
@@ -22,7 +23,7 @@ func NewLogger(options LoggerOptions) *log.Logger {
 	// Configure logger.
 	log.SetFormatter(log.MustStringFormatter("[%{level}] %{message}"))
 	logBackend := log.NewLogBackend(os.Stderr, "", Stdlog.LstdFlags|Stdlog.Lshortfile)
-	logBackend.Color = true
+	logBackend.Color = !options.NoColor
 	log.SetBackend(logBackend)
 
 	// Set log level.

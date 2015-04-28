@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
 
@@ -46,10 +47,11 @@ type Context struct {
 
 type Server struct {
 	// The address to listen on.
-	addr         string
-	accessLogger *log.Logger
-	statusLogger *log.Logger
-	listener     net.Listener
+	addr                string
+	accessLogger        *log.Logger
+	statusLogger        *log.Logger
+	listener            net.Listener
+	extendAccessLogging bool
 
 	preHTTPHandler  AccessReporter
 	postHTTPHandler AccessReporter
@@ -107,6 +109,11 @@ func (this *Server) ServeNotFound(middlewares ...Middleware) {
 	this.Router.NotFoundHandler = this.NewMiddlewareHandler(middlewares)
 }
 
+// ExtendAccessLogging turns on the usage of ExtendedAccessLogger
+func (s *Server) ExtendAccessLogging() {
+	s.extendAccessLogging = true
+}
+
 func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	if s.alreadyRegisteredRoutes {
 		return
@@ -115,13 +122,20 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	var handler http.Handler = s.Router
 
 	if s.accessLogger != nil {
+		reporter := DefaultAccessReporter(s.accessLogger)
+		if s.extendAccessLogging {
+			reporter = ExtendedAccessReporter(s.accessLogger)
+		}
 		handler = NewLogAccessHandler(
-			DefaultAccessReporter(s.accessLogger),
+			reporter,
 			s.preHTTPHandler,
 			s.postHTTPHandler,
 			handler,
 		)
 	}
+
+	// Always cleanup gorilla context request variables
+	handler = context.ClearHandler(handler)
 
 	// http.mux handlers need a trailing slash while gorilla's mux does not need one
 	// because they have different matching algorithms.

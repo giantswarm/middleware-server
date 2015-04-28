@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/catalyst-zero/middleware-server/test"
+	"github.com/giantswarm/middleware-server/test"
 
-	srvPkg "github.com/catalyst-zero/middleware-server"
+	srvPkg "github.com/giantswarm/middleware-server"
 	log "github.com/op/go-logging"
 
 	. "github.com/onsi/ginkgo"

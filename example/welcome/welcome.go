@@ -1,6 +1,6 @@
 package main
 
-import srvPkg "github.com/catalyst-zero/middleware-server"
+import srvPkg "github.com/giantswarm/middleware-server"
 
 func main() {
 	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "welcome-example", Level: "debug"})

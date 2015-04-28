@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"time"
 
@@ -80,6 +82,16 @@ func (e *accessEntryWriter) WriteHeader(code int) {
 	e.ResponseWriter.WriteHeader(code)
 }
 
+// Hijack lets the caller take over the connection.
+// After a call to Hijack(), the HTTP server library
+// will not do anything else with the connection.
+// It becomes the caller's responsibility to manage
+// and close the connection.
+func (e *accessEntryWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker := e.ResponseWriter.(http.Hijacker)
+	return hijacker.Hijack()
+}
+
 // NewLogAccessHandler executes the next handler and logs the requests statistics afterwards to the logger.
 func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, req *http.Request) {
@@ -125,5 +137,13 @@ func DefaultAccessReporter(logger *log.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
 		milliseconds := int(entry.duration / time.Millisecond)
 		logger.Info("%s %s %d %d %d", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds)
+	}
+}
+
+// ExtendedAccessReporter createsan access logger that logs everything that DefaultAccessReporter does with the User-Agent added to that
+func ExtendedAccessReporter(logger *log.Logger) AccessReporter {
+	return func(entry *AccessEntry) {
+		milliseconds := int(entry.duration / time.Millisecond)
+		logger.Info("%s %s %d %d %d %s", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds, entry.Request().Header.Get("User-Agent"))
 	}
 }
