@@ -11,7 +11,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"testing"
 )
+
+func TestServer(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Middleware-Server Suite")
+}
 
 // Define testing middlewares v1.
 type V1 struct {
