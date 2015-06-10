@@ -241,7 +241,7 @@ func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler 
 				if this.statusLogger != nil {
 					this.statusLogger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
 				}
-				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
+				ctx.Response.Error('{"message":"An error occured"}', http.StatusInternalServerError)
 				return
 			}
 
