@@ -28,7 +28,7 @@ func middlewareThree(res http.ResponseWriter, req *http.Request, ctx *server.Con
 	ctx.AddLoggerMeta("price", 18.25)
 	ctx.Logger.Info("middleware %s", "three")
 
-	return ctx.Response.PlainText("OK OK OK", http.StatusOK)
+	return ctx.Response.PlainText("OK", http.StatusOK)
 }
 
 func main() {

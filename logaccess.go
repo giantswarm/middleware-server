@@ -2,13 +2,12 @@ package server
 
 import (
 	"bufio"
-	"fmt"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
-	log "github.com/op/go-logging"
+	"github.com/op/go-logging"
 )
 
 // Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
@@ -72,10 +71,8 @@ func (e *accessEntryWriter) CloseNotify() <-chan bool {
 
 // Write sums the writes to produce the actual number of bytes written
 func (e *accessEntryWriter) Write(b []byte) (int, error) {
-	fmt.Printf("%#v\n", ">>>>>>>>>>>>>>>>>>>>")
 	n, err := e.ResponseWriter.Write(b)
 	e.entry.size += int64(n)
-	fmt.Printf("\n\n  size: %#v\n\n\n", e.entry.size)
 	return n, err
 }
 
@@ -130,15 +127,13 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 			postHTTP(&entry)
 		}
 
-		fmt.Printf("%#v\n", entry)
-
 		reporter(&entry)
 	})
 }
 
 type AccessReporter func(entry *AccessEntry)
 
-func DefaultAccessReporter(logger *log.Logger) AccessReporter {
+func DefaultAccessReporter(logger *logging.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
 		milliseconds := int(entry.duration / time.Millisecond)
 		logger.Info("%s %s %d %d %d", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds)
@@ -146,7 +141,7 @@ func DefaultAccessReporter(logger *log.Logger) AccessReporter {
 }
 
 // ExtendedAccessReporter createsan access logger that logs everything that DefaultAccessReporter does with the User-Agent added to that
-func ExtendedAccessReporter(logger *log.Logger) AccessReporter {
+func ExtendedAccessReporter(logger *logging.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
 		milliseconds := int(entry.duration / time.Millisecond)
 		logger.Info("%s %s %d %d %d %s", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds, entry.Request().Header.Get("User-Agent"))

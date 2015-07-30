@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -223,21 +222,20 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 
 		logger := MustGetLogger(LoggerOptions{ID: reqID, Level: s.logLevel})
 
-		ctx := &Context{
-			MuxVars:     mux.Vars(req),
-			requestMeta: map[string]interface{}{},
-			Response: Response{
-				w: res,
-			},
-			RequestID: func() string {
-				return reqID
-			},
-			Logger: logger,
-		}
-
 		// create handler that actually processes the middlewares
 		middlewareHandler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			fmt.Printf("%#v\n", "*********")
+			ctx := &Context{
+				MuxVars:     mux.Vars(req),
+				requestMeta: map[string]interface{}{},
+				Response: Response{
+					w: res,
+				},
+				RequestID: func() string {
+					return reqID
+				},
+				Logger: logger,
+			}
+
 			for _, middleware := range middlewares {
 				nextCalled := false
 				ctx.Next = func() error {

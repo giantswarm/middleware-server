@@ -21,7 +21,7 @@ type logFormat struct {
 	Level   string                 `json:"level"`
 	File    string                 `json:"file"`
 	Message string                 `json:"message"`
-	Meta    map[string]interface{} `json:"meta"`
+	Meta    map[string]interface{} `json:"meta,omitempty"`
 }
 
 // NewSimpleLogger creates a new logger with a default backend logging to `os.Stderr`.
@@ -46,10 +46,11 @@ func MustGetLogger(options LoggerOptions) *logging.Logger {
 		panic(errgo.Mask(err))
 	}
 
-	logging.SetFormatter(logging.MustStringFormatter(string(rawFormat)))
-	logBackend := logging.NewLogBackend(os.Stderr, "", 0)
-	logBackend.Color = !options.NoColor
-	logging.SetBackend(logBackend)
+	formatter := logging.MustStringFormatter(string(rawFormat))
+	backend := logging.NewLogBackend(os.Stderr, "", 0)
+	backend.Color = !options.NoColor
+	backendFormatter := logging.NewBackendFormatter(backend, formatter)
+	leveledBackend := logging.AddModuleLevel(backendFormatter)
 
 	// Set log level.
 	if options.Level != "" {
@@ -58,8 +59,10 @@ func MustGetLogger(options LoggerOptions) *logging.Logger {
 			panic(errgo.Mask(err))
 		}
 
-		logging.SetLevel(logLevel, options.ID)
+		leveledBackend.SetLevel(logLevel, options.ID)
 	}
+
+	logger.SetBackend(leveledBackend)
 
 	return logger
 }
