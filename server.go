@@ -10,26 +10,27 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/context"
+	gorillacontext "github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
-
-	log "github.com/op/go-logging"
+	"github.com/op/go-logging"
+	"golang.org/x/net/context"
 )
 
 const (
 	DefaultCloseListenerDelay = 0
-	DefaultOsExitDelay        = 3
+	DefaultOsExitDelay        = 5
 	DefaultOsExitCode         = 0
+
+  RequestHeader = "X-Request-ID"
+	ScopeKey = 0
 )
 
-type CtxConstructor func() interface{}
-
 // Middleware is a http handler method.
-type Middleware func(http.ResponseWriter, *http.Request, *Context) error
+type Middleware func(ctx context.Context, res http.ResponseWriter, req *http.Request) error
 
-// Context is a map getting through all middlewares.
-type Context struct {
+// Scope is a map getting through all middlewares.
+type Scope struct {
 	// Contains all placeholders from the route.
 	MuxVars map[string]string
 
@@ -41,15 +42,14 @@ type Context struct {
 	// Always returns `nil`, so it can be convieniently used with return to quit the middleware.
 	Next func() error
 
-	// The app context for this request. Gets prefilled by the CtxConstructor, if set in the server.
-	App interface{}
+	Logger *logging.Logger
 }
 
 type Server struct {
 	// The address to listen on.
 	addr                string
-	accessLogger        *log.Logger
-	statusLogger        *log.Logger
+	accessLogger        *logging.Logger
+	statusLogger        *logging.Logger
 	listener            net.Listener
 	extendAccessLogging bool
 
@@ -60,12 +60,12 @@ type Server struct {
 
 	Router *mux.Router
 
-	ctxConstructor CtxConstructor
-
 	signalCounter      uint32
 	closeListenerDelay time.Duration
 	osExitDelay        time.Duration
 	osExitCode         int
+
+	Uuid func() string
 }
 
 func NewServer(host, port string) *Server {
@@ -74,10 +74,12 @@ func NewServer(host, port string) *Server {
 	router.KeepContext = true
 
 	s := &Server{
-		addr:   host + ":" + port,
-		Router: router,
+		addr:      host + ":" + port,
+		Router:    router,
+		Uuid: NewRequestIDFactory(),
 	}
 
+  s.SetLogger(MustGetLogger(LoggerOptions{ID: s.Uuid()}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)
@@ -85,28 +87,28 @@ func NewServer(host, port string) *Server {
 	return s
 }
 
-func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
+func (s *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	if len(middlewares) == 0 {
 		panic("Missing at least one Middleware-Handler. Aborting...")
 	}
-	handler := this.NewMiddlewareHandler(middlewares)
+	handler := s.NewMiddlewareHandler(middlewares)
 
-	this.Router.Methods(method).Path(urlPath).Handler(handler).Name(method + " " + urlPath)
+	s.Router.Methods(method).Path(urlPath).Handler(handler).Name(method + " " + urlPath)
 }
 
 // ServeStatis registers a middleware that serves files from the filesystem.
-// Example: this.ServeStatic("/v1/public", "./public_html/v1/")
-func (this *Server) ServeStatic(urlPath, fsPath string) {
+// Example: s.ServeStatic("/v1/public", "./public_html/v1/")
+func (s *Server) ServeStatic(urlPath, fsPath string) {
 	handler := http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath)))
-	this.Router.Methods("GET").PathPrefix(urlPath).Handler(handler)
+	s.Router.Methods("GET").PathPrefix(urlPath).Handler(handler)
 }
 
-func (this *Server) ServeNotFound(middlewares ...Middleware) {
+func (s *Server) ServeNotFound(middlewares ...Middleware) {
 	if len(middlewares) == 0 {
 		panic("Missing at least one NotFound-Handler. Aborting...")
 	}
 
-	this.Router.NotFoundHandler = this.NewMiddlewareHandler(middlewares)
+	s.Router.NotFoundHandler = s.NewMiddlewareHandler(middlewares)
 }
 
 // ExtendAccessLogging turns on the usage of ExtendedAccessLogger
@@ -135,7 +137,7 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	}
 
 	// Always cleanup gorilla context request variables
-	handler = context.ClearHandler(handler)
+	handler = gorillacontext.ClearHandler(handler)
 
 	// http.mux handlers need a trailing slash while gorilla's mux does not need one
 	// because they have different matching algorithms.
@@ -209,39 +211,43 @@ func (s *Server) ExitProcess() {
 
 // NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler,
 // on activation, calls each middleware in order, if no error was returned and
-// `ctx.Next()` was called. If a middleware wants to finish the processing, it
-// can just write to the `http.ResponseWriter` or use the `ctx.Responder` for
+// `scope.Next()` was called. If a middleware wants to finish the processing, it
+// can just write to the `http.ResponseWriter` or use the `scope.Responder` for
 // convienience.
-//
-// The `Context.App` can be initialized by providing a CtxConstructor via
-// `SetAppContext()`.
-func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
+func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		reqID := req.Header.Get(RequestHeader)
+		if reqID == "" {
+			reqID = s.Uuid()
+		}
+
+		logger := MustGetLogger(LoggerOptions{ID: reqID})
+    s.SetLogger(logger)
+
 		// Initialize fresh scope variables.
-		ctx := &Context{
+		scope := Scope{
 			MuxVars: mux.Vars(req),
 			Response: Response{
 				w: res,
 			},
+			Logger: logger,
 		}
 
-		if this.ctxConstructor != nil {
-			ctx.App = this.ctxConstructor()
-		}
+		ctx := context.Background()
 
 		for _, middleware := range middlewares {
 			nextCalled := false
-			ctx.Next = func() error {
+			scope.Next = func() error {
 				nextCalled = true
 				return nil
 			}
+			ctx = context.WithValue(ctx, ScopeKey, scope)
 
 			// End the request with an error and stop calling further middlewares.
-			if err := middleware(res, req, ctx); err != nil {
-				if this.statusLogger != nil {
-					this.statusLogger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
-				}
-				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
+			if err := middleware(ctx, res, req); err != nil {
+				s.statusLogger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
+
+				scope.Response.Error(err.Error(), http.StatusInternalServerError)
 				return
 			}
 

@@ -28,13 +28,6 @@ func (s *Server) SetStatusLogger(logger *log.Logger) {
 	s.statusLogger = logger
 }
 
-// SetAppContext sets the CtxConstructor object, that is called for every
-// request to provide the initial `Context.App` value, which is available to
-// every middleware.
-func (s *Server) SetAppContext(ctxConstructor CtxConstructor) {
-	s.ctxConstructor = ctxConstructor
-}
-
 // SetCloseListenerDelay sets the time to delay closing the TCP listener when
 // calling `s.Close()`.
 func (s *Server) SetCloseListenerDelay(d int) {
