@@ -22,8 +22,8 @@ const (
 	DefaultOsExitDelay        = 5
 	DefaultOsExitCode         = 0
 
-  RequestHeader = "X-Request-ID"
-	ScopeKey = 0
+	RequestHeader = "X-Request-ID"
+	ScopeKey      = 0
 )
 
 // Middleware is a http handler method.
@@ -74,12 +74,12 @@ func NewServer(host, port string) *Server {
 	router.KeepContext = true
 
 	s := &Server{
-		addr:      host + ":" + port,
-		Router:    router,
-		Uuid: NewRequestIDFactory(),
+		addr:   host + ":" + port,
+		Router: router,
+		Uuid:   NewRequestIDFactory(),
 	}
 
-  s.SetLogger(MustGetLogger(LoggerOptions{ID: s.Uuid()}))
+	s.SetLogger(MustGetLogger(LoggerOptions{ID: s.Uuid()}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)
@@ -222,7 +222,7 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 		}
 
 		logger := MustGetLogger(LoggerOptions{ID: reqID})
-    s.SetLogger(logger)
+		s.SetLogger(logger)
 
 		// Initialize fresh scope variables.
 		scope := Scope{
