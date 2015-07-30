@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -71,8 +72,10 @@ func (e *accessEntryWriter) CloseNotify() <-chan bool {
 
 // Write sums the writes to produce the actual number of bytes written
 func (e *accessEntryWriter) Write(b []byte) (int, error) {
+	fmt.Printf("%#v\n", ">>>>>>>>>>>>>>>>>>>>")
 	n, err := e.ResponseWriter.Write(b)
 	e.entry.size += int64(n)
+	fmt.Printf("\n\n  size: %#v\n\n\n", e.entry.size)
 	return n, err
 }
 
@@ -126,6 +129,8 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 		if postHTTP != nil {
 			postHTTP(&entry)
 		}
+
+		fmt.Printf("%#v\n", entry)
 
 		reporter(&entry)
 	})

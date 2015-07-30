@@ -3,33 +3,38 @@ package main
 import (
 	"net/http"
 
-	srvPkg "github.com/giantswarm/middleware-server"
-	logPkg "github.com/op/go-logging"
+	"github.com/giantswarm/middleware-server"
 )
 
-type V1 struct {
-	Logger *logPkg.Logger
+func middlewareOne(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+	ctx.Logger.Critical("middleware %s", "one")
+	ctx.Logger.Error("middleware %s", "one")
+	ctx.Logger.Warning("middleware %s", "one")
+	ctx.Logger.Notice("middleware %s", "one")
+	ctx.Logger.Info("middleware %s", "one")
+	ctx.Logger.Debug("middleware %s", "one")
+
+	return ctx.Next()
 }
 
-func (this *V1) middlewareOne(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	this.Logger.Critical("middleware %s", "one")
-	this.Logger.Error("middleware %s", "one")
-	this.Logger.Warning("middleware %s", "one")
-	this.Logger.Notice("middleware %s", "one")
-	this.Logger.Info("middleware %s", "one")
-	this.Logger.Debug("middleware %s", "one")
+func middlewareTwo(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+	ctx.AddLoggerMeta("price", 12.50)
+	ctx.Logger.Info("middleware %s", "two")
 
-	return ctx.Response.PlainText("hello world", http.StatusOK)
+	return ctx.Next()
+}
+
+func middlewareThree(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+	ctx.AddLoggerMeta("price", 18.25)
+	ctx.Logger.Info("middleware %s", "three")
+
+	return ctx.Response.PlainText("OK OK OK", http.StatusOK)
 }
 
 func main() {
-	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "middleware-example", Level: "debug"})
-	v1 := &V1{Logger: logger}
-
-	srv := srvPkg.NewServer("127.0.0.1", "8080")
-	srv.SetLogger(logger)
-
-	srv.Serve("GET", "/v1/hello-world", v1.middlewareOne)
-
+	srv := server.NewServer("127.0.0.1", "8080")
+	srv.SetLogLevel("info")
+	srv.Serve("GET", "/", middlewareOne, middlewareTwo, middlewareThree)
+	srv.Logger.Info("This is the logging example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }

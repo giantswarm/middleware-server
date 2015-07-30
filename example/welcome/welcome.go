@@ -1,14 +1,12 @@
 package main
 
-import srvPkg "github.com/giantswarm/middleware-server"
+import (
+	"github.com/giantswarm/middleware-server"
+)
 
 func main() {
-	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "welcome-example", Level: "debug"})
-
-	srv := srvPkg.NewServer("127.0.0.1", "8080")
-	srv.SetLogger(logger)
-
-	srv.Serve("GET", "/", srvPkg.NewWelcomeMiddleware("welcome example", "0.0.1"))
-
+	srv := server.NewServer("127.0.0.1", "8080")
+	srv.Serve("GET", "/", server.NewWelcomeMiddleware("welcome example", "0.0.1"))
+	srv.Logger.Info("This is the welcome example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }

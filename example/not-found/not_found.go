@@ -3,33 +3,23 @@ package main
 import (
 	"net/http"
 
-	srvPkg "github.com/giantswarm/middleware-server"
-	logPkg "github.com/op/go-logging"
+	"github.com/giantswarm/middleware-server"
 )
 
-type V1 struct {
-	Logger *logPkg.Logger
+func middlewareOne(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+	ctx.Logger.Debug("middlewareOne")
+	return ctx.Response.PlainText("OK", http.StatusOK)
 }
 
-func (this *V1) middlewareOne(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	this.Logger.Debug("hello world")
-	return ctx.Response.PlainText("hello world", http.StatusOK)
-}
-
-func (this *V1) notFound(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	this.Logger.Debug("not found")
+func notFound(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+	ctx.Logger.Debug("not found")
 	return ctx.Response.PlainText("not found", http.StatusOK)
 }
 
 func main() {
-	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "not-found-example"})
-	v1 := &V1{Logger: logger}
-
-	srv := srvPkg.NewServer("127.0.0.1", "8080")
-	srv.SetLogger(logger)
-
-	srv.Serve("GET", "/v1/hello-world", v1.middlewareOne)
-	srv.ServeNotFound(v1.notFound)
-
+	srv := server.NewServer("127.0.0.1", "8080")
+	srv.Serve("GET", "/", middlewareOne)
+	srv.ServeNotFound(notFound)
+	srv.Logger.Debug("This is the not-found example. Try `curl localhost:8080`, or `curl localhost:8080/foo` to see what happens.")
 	srv.Listen()
 }

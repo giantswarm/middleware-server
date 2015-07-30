@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -10,11 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	gorillacontext "github.com/gorilla/context"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -27,12 +27,14 @@ const (
 )
 
 // Middleware is a http handler method.
-type Middleware func(ctx context.Context, res http.ResponseWriter, req *http.Request) error
+type Middleware func(res http.ResponseWriter, req *http.Request, ctx *Context) error
 
-// Scope is a map getting through all middlewares.
-type Scope struct {
+// Context is a map getting through all middlewares.
+type Context struct {
 	// Contains all placeholders from the route.
 	MuxVars map[string]string
+
+	requestMeta map[string]interface{}
 
 	// Helper to quickly write results to the `http.ResponseWriter`.
 	Response Response
@@ -42,14 +44,25 @@ type Scope struct {
 	// Always returns `nil`, so it can be convieniently used with return to quit the middleware.
 	Next func() error
 
+	RequestID func() string
+
 	Logger *logging.Logger
+}
+
+func (ctx *Context) AddLoggerMeta(key string, value interface{}) {
+	ctx.requestMeta[key] = value
+
+	ctx.Logger = MustGetLogger(LoggerOptions{
+		ID:   ctx.RequestID(),
+		Meta: ctx.requestMeta,
+	})
 }
 
 type Server struct {
 	// The address to listen on.
 	addr                string
-	accessLogger        *logging.Logger
-	statusLogger        *logging.Logger
+	logLevel            string
+	Logger              *logging.Logger
 	listener            net.Listener
 	extendAccessLogging bool
 
@@ -123,21 +136,8 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 
 	var handler http.Handler = s.Router
 
-	if s.accessLogger != nil {
-		reporter := DefaultAccessReporter(s.accessLogger)
-		if s.extendAccessLogging {
-			reporter = ExtendedAccessReporter(s.accessLogger)
-		}
-		handler = NewLogAccessHandler(
-			reporter,
-			s.preHTTPHandler,
-			s.postHTTPHandler,
-			handler,
-		)
-	}
-
 	// Always cleanup gorilla context request variables
-	handler = gorillacontext.ClearHandler(handler)
+	handler = context.ClearHandler(handler)
 
 	// http.mux handlers need a trailing slash while gorilla's mux does not need one
 	// because they have different matching algorithms.
@@ -157,13 +157,12 @@ func (s *Server) Listen() {
 	}
 
 	go func() {
-		s.statusLogger.Info("starting server on " + s.addr)
 		if err := http.Serve(s.listener, mux); err != nil {
 			if _, ok := err.(*net.OpError); ok {
 				// We ignore the error "use of closed network connection", because it is
 				// caused by us when shutting down the server.
 			} else {
-				s.statusLogger.Error("%#v", errgo.Mask(err))
+				s.Logger.Error("%#v", errgo.Mask(err))
 			}
 		}
 	}()
@@ -182,7 +181,7 @@ func (s *Server) listenSignals() {
 	for {
 		select {
 		case sig := <-c:
-			s.statusLogger.Info("server received signal %s", sig)
+			s.Logger.Info("server received signal %s", sig)
 			go s.Close()
 		}
 	}
@@ -194,66 +193,86 @@ func (s *Server) Close() {
 		s.ExitProcess()
 	}
 
-	s.statusLogger.Info("closing tcp listener in %s", s.closeListenerDelay.String())
+	s.Logger.Info("closing tcp listener in %s", s.closeListenerDelay.String())
 	time.Sleep(s.closeListenerDelay)
 	s.listener.Close()
 
-	s.statusLogger.Info("shutting down server in %s", s.osExitDelay.String())
+	s.Logger.Info("shutting down server in %s", s.osExitDelay.String())
 	time.Sleep(s.osExitDelay)
 
 	s.ExitProcess()
 }
 
 func (s *Server) ExitProcess() {
-	s.statusLogger.Info("shutting down server with exit code %d", s.osExitCode)
+	s.Logger.Info("shutting down server with exit code %d", s.osExitCode)
 	os.Exit(s.osExitCode)
 }
 
 // NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler,
 // on activation, calls each middleware in order, if no error was returned and
-// `scope.Next()` was called. If a middleware wants to finish the processing, it
-// can just write to the `http.ResponseWriter` or use the `scope.Responder` for
+// `ctx.Next()` was called. If a middleware wants to finish the processing, it
+// can just write to the `http.ResponseWriter` or use the `ctx.Response` for
 // convienience.
 func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		// prepare request
 		reqID := req.Header.Get(RequestHeader)
 		if reqID == "" {
 			reqID = s.Uuid()
 		}
 
-		logger := MustGetLogger(LoggerOptions{ID: reqID})
-		s.SetLogger(logger)
+		logger := MustGetLogger(LoggerOptions{ID: reqID, Level: s.logLevel})
 
-		// Initialize fresh scope variables.
-		scope := Scope{
-			MuxVars: mux.Vars(req),
+		ctx := &Context{
+			MuxVars:     mux.Vars(req),
+			requestMeta: map[string]interface{}{},
 			Response: Response{
 				w: res,
+			},
+			RequestID: func() string {
+				return reqID
 			},
 			Logger: logger,
 		}
 
-		ctx := context.Background()
+		// create handler that actually processes the middlewares
+		middlewareHandler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			fmt.Printf("%#v\n", "*********")
+			for _, middleware := range middlewares {
+				nextCalled := false
+				ctx.Next = func() error {
+					nextCalled = true
+					return nil
+				}
 
-		for _, middleware := range middlewares {
-			nextCalled := false
-			scope.Next = func() error {
-				nextCalled = true
-				return nil
+				// End the request with an error and stop calling further middlewares.
+				if err := middleware(res, req, ctx); err != nil {
+					logger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
+
+					ctx.Response.Error(err.Error(), http.StatusInternalServerError)
+					break
+				}
+
+				if !nextCalled {
+					break
+				}
 			}
-			ctx = context.WithValue(ctx, ScopeKey, scope)
+		})
 
-			// End the request with an error and stop calling further middlewares.
-			if err := middleware(ctx, res, req); err != nil {
-				s.statusLogger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
-
-				scope.Response.Error(err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			if !nextCalled {
-				break
-			}
+		// do access-logging by wrapping the middleware handler
+		reporter := DefaultAccessReporter(logger)
+		if s.extendAccessLogging {
+			reporter = ExtendedAccessReporter(logger)
 		}
+
+		handler := NewLogAccessHandler(
+			reporter,
+			s.preHTTPHandler,
+			s.postHTTPHandler,
+			middlewareHandler,
+		).(http.HandlerFunc)
+
+		// handle request
+		handler.ServeHTTP(res, req)
 	})
 }

@@ -12,16 +12,16 @@ type LoggerOptions struct {
 	ID      string
 	Level   string
 	NoColor bool
-	Meta    interface{}
+	Meta    map[string]interface{}
 }
 
 type logFormat struct {
-	ID      string      `json:"id"`
-	Time    string      `json:"time"`
-	Level   string      `json:"level"`
-	File    string      `json:"file"`
-	Message string      `json:"message"`
-	Meta    interface{} `json:"meta"`
+	ID      string                 `json:"id"`
+	Time    string                 `json:"time"`
+	Level   string                 `json:"level"`
+	File    string                 `json:"file"`
+	Message string                 `json:"message"`
+	Meta    map[string]interface{} `json:"meta"`
 }
 
 // NewSimpleLogger creates a new logger with a default backend logging to `os.Stderr`.

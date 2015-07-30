@@ -4,27 +4,17 @@ import (
 	"fmt"
 	"net/http"
 
-	srvPkg "github.com/giantswarm/middleware-server"
-	logPkg "github.com/op/go-logging"
+	"github.com/giantswarm/middleware-server"
 )
 
-type V1 struct {
-	Logger *logPkg.Logger
-}
-
-func (this *V1) middlewareOne(res http.ResponseWriter, req *http.Request, ctx *srvPkg.Context) error {
-	this.Logger.Debug("error")
+func middlewareOne(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
+	ctx.Logger.Debug("error")
 	return fmt.Errorf("error")
 }
 
 func main() {
-	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "error-example"})
-	v1 := &V1{Logger: logger}
-
-	srv := srvPkg.NewServer("127.0.0.1", "8080")
-	srv.SetLogger(logger)
-
-	srv.Serve("GET", "/v1/hello-world", v1.middlewareOne)
-
+	srv := server.NewServer("127.0.0.1", "8080")
+	srv.Serve("GET", "/", middlewareOne)
+	srv.Logger.Info("This is the error example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }

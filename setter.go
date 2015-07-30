@@ -14,18 +14,13 @@ func (s *Server) SetPostHTTPHandler(reporter AccessReporter) {
 	s.postHTTPHandler = reporter
 }
 
+func (s *Server) SetLogLevel(level string) {
+	s.logLevel = level
+}
+
 // SetLogger sets the logger object to which the server logs every request.
 func (s *Server) SetLogger(logger *log.Logger) {
-	s.SetAccessLogger(logger)
-	s.SetStatusLogger(logger)
-}
-
-func (s *Server) SetAccessLogger(logger *log.Logger) {
-	s.accessLogger = logger
-}
-
-func (s *Server) SetStatusLogger(logger *log.Logger) {
-	s.statusLogger = logger
+	s.Logger = logger
 }
 
 // SetCloseListenerDelay sets the time to delay closing the TCP listener when
