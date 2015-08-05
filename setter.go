@@ -14,6 +14,13 @@ func (s *Server) SetPostHTTPHandler(reporter AccessReporter) {
 	s.postHTTPHandler = reporter
 }
 
+// SetAppContext sets the CtxConstructor object, that is called for every
+// request to provide the initial `Context.App` value, which is available to
+// every middleware.
+func (s *Server) SetAppContext(ctxConstructor CtxConstructor) {
+	s.ctxConstructor = ctxConstructor
+}
+
 func (s *Server) SetLogLevel(level string) {
 	s.logLevel = level
 }
