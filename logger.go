@@ -30,23 +30,15 @@ func MustGetLogger(options LoggerOptions) *logging.Logger {
 	// "id" field in the log format.
 	logger := logging.MustGetLogger(options.ID)
 
-	// See https://godoc.org/github.com/op/go-logging#NewStringFormatter for format verbs.
-	format := logFormat{
-		ID:      "%{module}",
-		Time:    "%{time}",
-		Level:   "%{level}",
-		File:    "%{longfile}",
-		Message: "%{message}",
-		Meta:    options.Meta,
-	}
-
 	// Configure logger.
-	rawFormat, err := json.Marshal(format)
+	rawMeta, err := json.Marshal(options.Meta)
 	if err != nil {
 		panic(errgo.Mask(err))
 	}
+	// See https://godoc.org/github.com/op/go-logging#NewStringFormatter for format verbs.
+	format := "%{module} | %{time:2006-01-02 15:04:05} | %{level} | %{longfile} | %{message} | " + string(rawMeta)
 
-	formatter := logging.MustStringFormatter(string(rawFormat))
+	formatter := logging.MustStringFormatter(format)
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backend.Color = !options.NoColor
 	backendFormatter := logging.NewBackendFormatter(backend, formatter)
