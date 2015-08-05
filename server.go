@@ -25,6 +25,8 @@ const (
 	ScopeKey      = 0
 )
 
+type CtxConstructor func() interface{}
+
 // Middleware is a http handler method.
 type Middleware func(res http.ResponseWriter, req *http.Request, ctx *Context) error
 
@@ -38,11 +40,15 @@ type Context struct {
 	// Helper to quickly write results to the `http.ResponseWriter`.
 	Response Response
 
-	// A middleware should call Next() to signal that no problem was encountered and
-	// the next middleware in the chain can be executed after this middleware finished.
-	// Always returns `nil`, so it can be convieniently used with return to quit the middleware.
+	// A middleware should call Next() to signal that no problem was encountered
+	// and the next middleware in the chain can be executed after this middleware
+	// finished. Always returns `nil`, so it can be convieniently used with
+	// return to quit the middleware.
 	Next func() error
 
+	// The app context for this request. Gets prefilled by the
+	// CtxConstructortructor, if set in the server.
+	App       interface{}
 	RequestID func() string
 
 	Logger *logging.Logger
@@ -71,6 +77,8 @@ type Server struct {
 	alreadyRegisteredRoutes bool
 
 	Router *mux.Router
+
+	ctxConstructor CtxConstructor
 
 	signalCounter      uint32
 	closeListenerDelay time.Duration
@@ -234,6 +242,10 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 					return reqID
 				},
 				Logger: logger,
+			}
+
+			if s.ctxConstructor != nil {
+				ctx.App = s.ctxConstructor()
 			}
 
 			for _, middleware := range middlewares {
