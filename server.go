@@ -67,6 +67,7 @@ type Server struct {
 	// The address to listen on.
 	addr                string
 	logLevel            string
+	logColor            bool
 	Logger              *logging.Logger
 	listener            net.Listener
 	extendAccessLogging bool
@@ -94,12 +95,13 @@ func NewServer(host, port string) *Server {
 	router.KeepContext = true
 
 	s := &Server{
-		addr:   host + ":" + port,
-		Router: router,
-		Uuid:   NewRequestIDFactory(),
+		addr:     host + ":" + port,
+		Router:   router,
+		Uuid:     NewRequestIDFactory(),
+		logColor: true,
 	}
 
-	s.SetLogger(MustGetLogger(LoggerOptions{ID: s.Uuid()}))
+	s.SetLogger(MustGetLogger(LoggerOptions{ID: s.Uuid(), Color: s.logColor}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)
@@ -228,7 +230,7 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 			reqID = s.Uuid()
 		}
 
-		logger := MustGetLogger(LoggerOptions{ID: reqID, Level: s.logLevel})
+		logger := MustGetLogger(LoggerOptions{ID: reqID, Level: s.logLevel, Color: s.logColor})
 
 		// create handler that actually processes the middlewares
 		middlewareHandler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {

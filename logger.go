@@ -9,10 +9,10 @@ import (
 )
 
 type LoggerOptions struct {
-	ID      string
-	Level   string
-	NoColor bool
-	Meta    map[string]interface{}
+	ID    string
+	Level string
+	Color bool
+	Meta  map[string]interface{}
 }
 
 type logFormat struct {
@@ -40,7 +40,7 @@ func MustGetLogger(options LoggerOptions) *logging.Logger {
 
 	formatter := logging.MustStringFormatter(format)
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	backend.Color = !options.NoColor
+	backend.Color = options.Color
 	backendFormatter := logging.NewBackendFormatter(backend, formatter)
 	leveledBackend := logging.AddModuleLevel(backendFormatter)
 

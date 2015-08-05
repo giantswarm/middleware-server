@@ -25,6 +25,10 @@ func (s *Server) SetLogLevel(level string) {
 	s.logLevel = level
 }
 
+func (s *Server) SetLogColor(color bool) {
+	s.logColor = color
+}
+
 // SetLogger sets the logger object to which the server logs every request.
 func (s *Server) SetLogger(logger *log.Logger) {
 	s.Logger = logger

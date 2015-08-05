@@ -34,6 +34,7 @@ func middlewareThree(res http.ResponseWriter, req *http.Request, ctx *server.Con
 func main() {
 	srv := server.NewServer("127.0.0.1", "8080")
 	srv.SetLogLevel("info")
+	//srv.SetLogColor(false)
 	srv.Serve("GET", "/", middlewareOne, middlewareTwo, middlewareThree)
 	srv.Logger.Info("This is the logging example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
