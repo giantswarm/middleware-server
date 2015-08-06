@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	log "github.com/op/go-logging"
+	"github.com/giantswarm/request-context"
 )
 
 func (s *Server) SetPreHTTPHandler(reporter AccessReporter) {
@@ -30,7 +30,7 @@ func (s *Server) SetLogColor(color bool) {
 }
 
 // SetLogger sets the logger object to which the server logs every request.
-func (s *Server) SetLogger(logger *log.Logger) {
+func (s *Server) SetLogger(logger requestcontext.Logger) {
 	s.Logger = logger
 }
 

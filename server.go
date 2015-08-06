@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/giantswarm/request-context"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
-	"github.com/op/go-logging"
 )
 
 const (
@@ -21,8 +21,8 @@ const (
 	DefaultOsExitDelay        = 5
 	DefaultOsExitCode         = 0
 
-	RequestHeader = "X-Request-ID"
-	ScopeKey      = 0
+	ClientIDHeader  = "X-Client-ID"
+	RequestIDHeader = "X-Request-ID"
 )
 
 type CtxConstructor func() interface{}
@@ -35,8 +35,6 @@ type Context struct {
 	// Contains all placeholders from the route.
 	MuxVars map[string]string
 
-	requestMeta map[string]interface{}
-
 	// Helper to quickly write results to the `http.ResponseWriter`.
 	Response Response
 
@@ -48,19 +46,11 @@ type Context struct {
 
 	// The app context for this request. Gets prefilled by the
 	// CtxConstructor, if set in the server.
-	App       interface{}
+	App     interface{}
+	Request requestcontext.Ctx
+
+	ClientID  func() string
 	RequestID func() string
-
-	Logger *logging.Logger
-}
-
-func (ctx *Context) AddLoggerMeta(key string, value interface{}) {
-	ctx.requestMeta[key] = value
-
-	ctx.Logger = MustGetLogger(LoggerOptions{
-		ID:   ctx.RequestID(),
-		Meta: ctx.requestMeta,
-	})
 }
 
 type Server struct {
@@ -68,7 +58,7 @@ type Server struct {
 	addr                string
 	logLevel            string
 	logColor            bool
-	Logger              *logging.Logger
+	Logger              requestcontext.Logger
 	listener            net.Listener
 	extendAccessLogging bool
 
@@ -95,13 +85,13 @@ func NewServer(host, port string) *Server {
 	router.KeepContext = true
 
 	s := &Server{
-		addr:     host + ":" + port,
-		Router:   router,
-		RequestIDFactory:     NewRequestIDFactory(),
-		logColor: true,
+		addr:             host + ":" + port,
+		Router:           router,
+		RequestIDFactory: NewRequestIDFactory(),
+		logColor:         true,
 	}
 
-	s.SetLogger(MustGetLogger(LoggerOptions{ID: s.RequestIDFactory(), Color: s.logColor}))
+	s.SetLogger(requestcontext.MustGetLogger(requestcontext.LoggerConfig{Name: s.RequestIDFactory(), Color: s.logColor}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)
@@ -111,7 +101,7 @@ func NewServer(host, port string) *Server {
 
 func (s *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	if len(middlewares) == 0 {
-		panic("Missing at least one Middleware-Handler. Aborting...")
+		panic("Missing at least one Middleware-Handler.")
 	}
 	handler := s.NewMiddlewareHandler(middlewares)
 
@@ -171,7 +161,7 @@ func (s *Server) Listen() {
 				// We ignore the error "use of closed network connection", because it is
 				// caused by us when shutting down the server.
 			} else {
-				s.Logger.Error("%#v", errgo.Mask(err))
+				s.Logger.Error(nil, "%#v", errgo.Mask(err))
 			}
 		}
 	}()
@@ -190,7 +180,7 @@ func (s *Server) listenSignals() {
 	for {
 		select {
 		case sig := <-c:
-			s.Logger.Info("server received signal %s", sig)
+			s.Logger.Info(nil, "server received signal %s", sig)
 			go s.Close()
 		}
 	}
@@ -202,18 +192,18 @@ func (s *Server) Close() {
 		s.ExitProcess()
 	}
 
-	s.Logger.Info("closing tcp listener in %s", s.closeListenerDelay.String())
+	s.Logger.Info(nil, "closing tcp listener in %s", s.closeListenerDelay.String())
 	time.Sleep(s.closeListenerDelay)
 	s.listener.Close()
 
-	s.Logger.Info("shutting down server in %s", s.osExitDelay.String())
+	s.Logger.Info(nil, "shutting down server in %s", s.osExitDelay.String())
 	time.Sleep(s.osExitDelay)
 
 	s.ExitProcess()
 }
 
 func (s *Server) ExitProcess() {
-	s.Logger.Info("shutting down server with exit code %d", s.osExitCode)
+	s.Logger.Info(nil, "shutting down server with exit code %d", s.osExitCode)
 	os.Exit(s.osExitCode)
 }
 
@@ -225,25 +215,33 @@ func (s *Server) ExitProcess() {
 func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// prepare request
-		reqID := req.Header.Get(RequestHeader)
-		if reqID == "" {
-			reqID = s.RequestIDFactory()
+		clientID := req.Header.Get(ClientIDHeader)
+		if clientID == "" {
+			clientID = s.RequestIDFactory()
 		}
-
-		logger := MustGetLogger(LoggerOptions{ID: reqID, Level: s.logLevel, Color: s.logColor})
+		requestID := req.Header.Get(RequestIDHeader)
+		if requestID == "" {
+			requestID = s.RequestIDFactory()
+		}
+		requestCtx := requestcontext.Ctx{
+			ClientIDHeader:  clientID,
+			RequestIDHeader: requestID,
+		}
 
 		// create handler that actually processes the middlewares
 		middlewareHandler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			ctx := &Context{
-				MuxVars:     mux.Vars(req),
-				requestMeta: map[string]interface{}{},
+				MuxVars: mux.Vars(req),
+				Request: requestCtx,
 				Response: Response{
 					w: res,
 				},
-				RequestID: func() string {
-					return reqID
+				ClientID: func() string {
+					return clientID
 				},
-				Logger: logger,
+				RequestID: func() string {
+					return requestID
+				},
 			}
 
 			if s.ctxConstructor != nil {
@@ -259,7 +257,7 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 
 				// End the request with an error and stop calling further middlewares.
 				if err := middleware(res, req, ctx); err != nil {
-					logger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
+					s.Logger.Error(requestCtx, "%s %s %#v", req.Method, req.URL, errgo.Mask(err))
 
 					ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 					break
@@ -272,9 +270,9 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 		})
 
 		// do access-logging by wrapping the middleware handler
-		reporter := DefaultAccessReporter(logger)
+		reporter := DefaultAccessReporter(requestCtx, s.Logger)
 		if s.extendAccessLogging {
-			reporter = ExtendedAccessReporter(logger)
+			reporter = ExtendedAccessReporter(requestCtx, s.Logger)
 		}
 
 		handler := NewLogAccessHandler(
