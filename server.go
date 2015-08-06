@@ -47,7 +47,7 @@ type Context struct {
 	Next func() error
 
 	// The app context for this request. Gets prefilled by the
-	// CtxConstructortructor, if set in the server.
+	// CtxConstructor, if set in the server.
 	App       interface{}
 	RequestID func() string
 
