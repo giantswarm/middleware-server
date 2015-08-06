@@ -22,6 +22,6 @@ func main() {
 
 	srv.Serve("GET", "/", server.NewHealthcheckMiddleware(hc))
 
-	srv.Logger.Debug("This is the healthcheck example. Try `curl localhost:8080` to see what happens.")
+	srv.Logger.Info(nil, "This is the healthcheck example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }

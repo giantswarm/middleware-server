@@ -16,9 +16,9 @@ func main() {
 	srv.Serve("GET", "/", func(res http.ResponseWriter, rep *http.Request, ctx *srvPkg.Context) error {
 		go srv.Close()
 
-		return ctx.Response.PlainText("This is the close example.\n", http.StatusOK)
+		return ctx.Response.PlainText("OK", http.StatusOK)
 	})
 
-	srv.Logger.Info("This is the close example. Try `curl localhost:8080` to see what happens.")
+	srv.Logger.Info(nil, "This is the close example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }

@@ -91,7 +91,7 @@ func NewServer(host, port string) *Server {
 		logColor:         true,
 	}
 
-	s.SetLogger(requestcontext.MustGetLogger(requestcontext.LoggerConfig{Name: s.RequestIDFactory(), Color: s.logColor}))
+	s.SetLogger(requestcontext.MustGetLogger(requestcontext.LoggerConfig{Name: "server", Color: s.logColor}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)

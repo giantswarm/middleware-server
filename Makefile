@@ -45,7 +45,6 @@ build-examples:
 	GOPATH=$(GOPATH) go build -o not-found.example ./example/not-found/
 	GOPATH=$(GOPATH) go build -o middleware.example ./example/middleware/
 	GOPATH=$(GOPATH) go build -o error.example ./example/error/
-	GOPATH=$(GOPATH) go build -o logging.example ./example/logging/
 	GOPATH=$(GOPATH) go build -o fileserver.example ./example/fileserver/
 	GOPATH=$(GOPATH) go build -o welcome.example ./example/welcome/
 	GOPATH=$(GOPATH) go build -o mux-cooperation.example ./example/mux-cooperation/

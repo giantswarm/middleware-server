@@ -8,12 +8,10 @@ import (
 )
 
 func middlewareOne(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
-	ctx.Logger.Debug("middleware one")
 	return ctx.Next()
 }
 
 func middlewareTwo(res http.ResponseWriter, req *http.Request, ctx *server.Context) error {
-	ctx.Logger.Debug("middleware two")
 	return ctx.Response.PlainText("OK from middleware", http.StatusOK)
 }
 
@@ -35,7 +33,7 @@ func main() {
 	srv.RegisterRoutes(mux, "/v1")
 
 	// start http server with merged mux
-	srv.Logger.Debug("This is the mix-cooperation example. Try `curl localhost:8080`, or `curl localhost:8080/v1/middleware` to see what happens.")
+	srv.Logger.Info(nil, "This is the mix-cooperation example. Try `curl localhost:8080`, or `curl localhost:8080/v1/middleware` to see what happens.")
 	if err := http.ListenAndServe("127.0.0.1:8080", mux); err != nil {
 		panic(err)
 	}
