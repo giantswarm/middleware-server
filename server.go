@@ -86,7 +86,7 @@ type Server struct {
 	osExitDelay        time.Duration
 	osExitCode         int
 
-	Uuid func() string
+	RequestIDFactory func() string
 }
 
 func NewServer(host, port string) *Server {
@@ -97,11 +97,11 @@ func NewServer(host, port string) *Server {
 	s := &Server{
 		addr:     host + ":" + port,
 		Router:   router,
-		Uuid:     NewRequestIDFactory(),
+		RequestIDFactory:     NewRequestIDFactory(),
 		logColor: true,
 	}
 
-	s.SetLogger(MustGetLogger(LoggerOptions{ID: s.Uuid(), Color: s.logColor}))
+	s.SetLogger(MustGetLogger(LoggerOptions{ID: s.RequestIDFactory(), Color: s.logColor}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)
@@ -227,7 +227,7 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 		// prepare request
 		reqID := req.Header.Get(RequestHeader)
 		if reqID == "" {
-			reqID = s.Uuid()
+			reqID = s.RequestIDFactory()
 		}
 
 		logger := MustGetLogger(LoggerOptions{ID: reqID, Level: s.logLevel, Color: s.logColor})
