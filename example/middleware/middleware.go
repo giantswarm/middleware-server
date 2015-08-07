@@ -37,7 +37,7 @@ func main() {
 		logger: requestcontext.MustGetLogger(requestcontext.LoggerConfig{
 			Name:  "middleware-example",
 			Level: "info",
-      Color: true,
+			Color: true,
 		}),
 	}
 
