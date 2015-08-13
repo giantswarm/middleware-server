@@ -215,6 +215,16 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// prepare request
 		requestID := req.Header.Get(RequestIDHeader)
+
+		// TODO: This is just for backward compatibility. Currently clients are
+		// sending both, client and request ID's. We just changed our concept and
+		// pushed client changes too fast, so we need to support them for a while
+		// to not be confused by our received data.
+		clientID := req.Header.Get("X-Client-ID")
+		if clientID != "" && requestID != "" {
+			requestID = clientID
+		}
+
 		if requestID == "" {
 			requestID = s.IDFactory()
 		} else {
