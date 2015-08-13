@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	requestIDFactoryLen   = 8
+	requestIDFactoryLen   = 16
 	requestIDFactoryChars = `abcdefghijklmnopqrstuvwxyz0123456789`
 )
 
-func NewRequestIDFactory() func() string {
+func NewIDFactory() func() string {
 	return func() string {
 		return uniuri.NewLenChars(requestIDFactoryLen, []byte(requestIDFactoryChars))
 	}

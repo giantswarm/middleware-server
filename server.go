@@ -21,7 +21,7 @@ const (
 	DefaultOsExitDelay        = 5
 	DefaultOsExitCode         = 0
 
-	ClientIDHeader  = "X-Client-ID"
+	RequestIDKey    = "request-id"
 	RequestIDHeader = "X-Request-ID"
 )
 
@@ -49,7 +49,6 @@ type Context struct {
 	App     interface{}
 	Request requestcontext.Ctx
 
-	ClientID  func() string
 	RequestID func() string
 }
 
@@ -76,7 +75,7 @@ type Server struct {
 	osExitDelay        time.Duration
 	osExitCode         int
 
-	RequestIDFactory func() string
+	IDFactory func() string
 }
 
 func NewServer(host, port string) *Server {
@@ -85,10 +84,10 @@ func NewServer(host, port string) *Server {
 	router.KeepContext = true
 
 	s := &Server{
-		addr:             host + ":" + port,
-		Router:           router,
-		RequestIDFactory: NewRequestIDFactory(),
-		logColor:         true,
+		addr:      host + ":" + port,
+		Router:    router,
+		IDFactory: NewIDFactory(),
+		logColor:  true,
 	}
 
 	s.SetLogger(requestcontext.MustGetLogger(requestcontext.LoggerConfig{Name: "server", Color: s.logColor}))
@@ -215,16 +214,13 @@ func (s *Server) ExitProcess() {
 func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// prepare request
-		clientID := req.Header.Get(ClientIDHeader)
-		if clientID == "" {
-			clientID = s.RequestIDFactory()
-		}
 		requestID := req.Header.Get(RequestIDHeader)
 		if requestID == "" {
-			requestID = s.RequestIDFactory()
+			requestID = s.IDFactory()
+		} else {
+			requestID += ", " + s.IDFactory()
 		}
 		requestCtx := requestcontext.Ctx{
-			ClientIDHeader:  clientID,
 			RequestIDHeader: requestID,
 		}
 
@@ -235,9 +231,6 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 				Request: requestCtx,
 				Response: Response{
 					w: res,
-				},
-				ClientID: func() string {
-					return clientID
 				},
 				RequestID: func() string {
 					return requestID
