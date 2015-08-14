@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/giantswarm/request-context"
 	"github.com/gorilla/mux"
-	log "github.com/op/go-logging"
 )
 
 // Code heavily inspired by https://github.com/streadway/handy/blob/master/report/
@@ -133,17 +133,17 @@ func NewLogAccessHandler(reporter, preHTTP, postHTTP AccessReporter, next http.H
 
 type AccessReporter func(entry *AccessEntry)
 
-func DefaultAccessReporter(logger *log.Logger) AccessReporter {
+func DefaultAccessReporter(ctx requestcontext.Ctx, logger requestcontext.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
 		milliseconds := int(entry.duration / time.Millisecond)
-		logger.Info("%s %s %d %d %d", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds)
+		logger.Info(ctx, "%s %s %d %d %d", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds)
 	}
 }
 
 // ExtendedAccessReporter createsan access logger that logs everything that DefaultAccessReporter does with the User-Agent added to that
-func ExtendedAccessReporter(logger *log.Logger) AccessReporter {
+func ExtendedAccessReporter(ctx requestcontext.Ctx, logger requestcontext.Logger) AccessReporter {
 	return func(entry *AccessEntry) {
 		milliseconds := int(entry.duration / time.Millisecond)
-		logger.Info("%s %s %d %d %d %s", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds, entry.Request().Header.Get("User-Agent"))
+		logger.Info(ctx, "%s %s %d %d %d %s", entry.requestMethod, entry.requestURI, entry.statusCode, entry.size, milliseconds, entry.Request().Header.Get("User-Agent"))
 	}
 }

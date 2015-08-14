@@ -1,30 +1,27 @@
 package main
 
 import (
-	srvPkg "github.com/catalyst-zero/middleware-server"
+	"github.com/giantswarm/middleware-server"
 )
 
 func main() {
-	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "healthcheck", Level: "debug"})
+	srv := server.NewServer("127.0.0.1", "8080")
 
-	srv := srvPkg.NewServer("127.0.0.1", "8080")
-	srv.SetLogger(logger)
-
-	hc := func() (srvPkg.HealthInfo, error) {
-		info := srvPkg.HealthInfo{
-			Status: srvPkg.StatusHealthy,
-			Backends: []srvPkg.HealthInfo{
-				srvPkg.HealthInfo{Status: srvPkg.StatusHealthy},
-				srvPkg.HealthInfo{Status: srvPkg.StatusUnhealthy}, // unhealthy
-				srvPkg.HealthInfo{Status: srvPkg.StatusHealthy},
+	hc := func() (server.HealthInfo, error) {
+		info := server.HealthInfo{
+			Status: server.StatusHealthy,
+			Backends: []server.HealthInfo{
+				server.HealthInfo{Status: server.StatusHealthy},
+				server.HealthInfo{Status: server.StatusUnhealthy}, // unhealthy
+				server.HealthInfo{Status: server.StatusHealthy},
 			},
 		}
 
 		return info, nil
 	}
 
-	srv.Serve("GET", "/", srvPkg.NewHealthcheckMiddleware(hc))
+	srv.Serve("GET", "/", server.NewHealthcheckMiddleware(hc))
 
-	logger.Debug("This is the healthcheck example. Try `curl localhost:8080` to see what happens.")
+	srv.Logger.Info(nil, "This is the healthcheck example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }

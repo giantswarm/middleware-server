@@ -10,23 +10,25 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/giantswarm/request-context"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/juju/errgo"
-
-	log "github.com/op/go-logging"
 )
 
 const (
 	DefaultCloseListenerDelay = 0
-	DefaultOsExitDelay        = 3
+	DefaultOsExitDelay        = 5
 	DefaultOsExitCode         = 0
+
+	RequestIDKey    = "request-id"
+	RequestIDHeader = "X-Request-ID"
 )
 
 type CtxConstructor func() interface{}
 
 // Middleware is a http handler method.
-type Middleware func(http.ResponseWriter, *http.Request, *Context) error
+type Middleware func(res http.ResponseWriter, req *http.Request, ctx *Context) error
 
 // Context is a map getting through all middlewares.
 type Context struct {
@@ -36,20 +38,26 @@ type Context struct {
 	// Helper to quickly write results to the `http.ResponseWriter`.
 	Response Response
 
-	// A middleware should call Next() to signal that no problem was encountered and
-	// the next middleware in the chain can be executed after this middleware finished.
-	// Always returns `nil`, so it can be convieniently used with return to quit the middleware.
+	// A middleware should call Next() to signal that no problem was encountered
+	// and the next middleware in the chain can be executed after this middleware
+	// finished. Always returns `nil`, so it can be convieniently used with
+	// return to quit the middleware.
 	Next func() error
 
-	// The app context for this request. Gets prefilled by the CtxConstructor, if set in the server.
-	App interface{}
+	// The app context for this request. Gets prefilled by the
+	// CtxConstructor, if set in the server.
+	App     interface{}
+	Request requestcontext.Ctx
+
+	RequestID func() string
 }
 
 type Server struct {
 	// The address to listen on.
 	addr                string
-	accessLogger        *log.Logger
-	statusLogger        *log.Logger
+	logLevel            string
+	logColor            bool
+	Logger              requestcontext.Logger
 	listener            net.Listener
 	extendAccessLogging bool
 
@@ -66,6 +74,8 @@ type Server struct {
 	closeListenerDelay time.Duration
 	osExitDelay        time.Duration
 	osExitCode         int
+
+	IDFactory func() string
 }
 
 func NewServer(host, port string) *Server {
@@ -74,10 +84,13 @@ func NewServer(host, port string) *Server {
 	router.KeepContext = true
 
 	s := &Server{
-		addr:   host + ":" + port,
-		Router: router,
+		addr:      host + ":" + port,
+		Router:    router,
+		IDFactory: NewIDFactory(),
+		logColor:  true,
 	}
 
+	s.SetLogger(requestcontext.MustGetLogger(requestcontext.LoggerConfig{Name: "server", Color: s.logColor}))
 	s.SetCloseListenerDelay(DefaultCloseListenerDelay)
 	s.SetOsExitDelay(DefaultOsExitDelay)
 	s.SetOsExitCode(DefaultOsExitCode)
@@ -85,28 +98,28 @@ func NewServer(host, port string) *Server {
 	return s
 }
 
-func (this *Server) Serve(method, urlPath string, middlewares ...Middleware) {
+func (s *Server) Serve(method, urlPath string, middlewares ...Middleware) {
 	if len(middlewares) == 0 {
-		panic("Missing at least one Middleware-Handler. Aborting...")
+		panic("Missing at least one Middleware-Handler.")
 	}
-	handler := this.NewMiddlewareHandler(middlewares)
+	handler := s.NewMiddlewareHandler(middlewares)
 
-	this.Router.Methods(method).Path(urlPath).Handler(handler).Name(method + " " + urlPath)
+	s.Router.Methods(method).Path(urlPath).Handler(handler).Name(method + " " + urlPath)
 }
 
 // ServeStatis registers a middleware that serves files from the filesystem.
-// Example: this.ServeStatic("/v1/public", "./public_html/v1/")
-func (this *Server) ServeStatic(urlPath, fsPath string) {
+// Example: s.ServeStatic("/v1/public", "./public_html/v1/")
+func (s *Server) ServeStatic(urlPath, fsPath string) {
 	handler := http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath)))
-	this.Router.Methods("GET").PathPrefix(urlPath).Handler(handler)
+	s.Router.Methods("GET").PathPrefix(urlPath).Handler(handler)
 }
 
-func (this *Server) ServeNotFound(middlewares ...Middleware) {
+func (s *Server) ServeNotFound(middlewares ...Middleware) {
 	if len(middlewares) == 0 {
 		panic("Missing at least one NotFound-Handler. Aborting...")
 	}
 
-	this.Router.NotFoundHandler = this.NewMiddlewareHandler(middlewares)
+	s.Router.NotFoundHandler = s.NewMiddlewareHandler(middlewares)
 }
 
 // ExtendAccessLogging turns on the usage of ExtendedAccessLogger
@@ -120,19 +133,6 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, prefix string) {
 	}
 
 	var handler http.Handler = s.Router
-
-	if s.accessLogger != nil {
-		reporter := DefaultAccessReporter(s.accessLogger)
-		if s.extendAccessLogging {
-			reporter = ExtendedAccessReporter(s.accessLogger)
-		}
-		handler = NewLogAccessHandler(
-			reporter,
-			s.preHTTPHandler,
-			s.postHTTPHandler,
-			handler,
-		)
-	}
 
 	// Always cleanup gorilla context request variables
 	handler = context.ClearHandler(handler)
@@ -155,13 +155,12 @@ func (s *Server) Listen() {
 	}
 
 	go func() {
-		s.statusLogger.Info("starting server on " + s.addr)
 		if err := http.Serve(s.listener, mux); err != nil {
 			if _, ok := err.(*net.OpError); ok {
 				// We ignore the error "use of closed network connection", because it is
 				// caused by us when shutting down the server.
 			} else {
-				s.statusLogger.Error("%#v", errgo.Mask(err))
+				s.Logger.Error(nil, "%#v", errgo.Mask(err))
 			}
 		}
 	}()
@@ -180,7 +179,7 @@ func (s *Server) listenSignals() {
 	for {
 		select {
 		case sig := <-c:
-			s.statusLogger.Info("server received signal %s", sig)
+			s.Logger.Info(nil, "server received signal %s", sig)
 			go s.Close()
 		}
 	}
@@ -192,62 +191,101 @@ func (s *Server) Close() {
 		s.ExitProcess()
 	}
 
-	s.statusLogger.Info("closing tcp listener in %s", s.closeListenerDelay.String())
+	s.Logger.Info(nil, "closing tcp listener in %s", s.closeListenerDelay.String())
 	time.Sleep(s.closeListenerDelay)
 	s.listener.Close()
 
-	s.statusLogger.Info("shutting down server in %s", s.osExitDelay.String())
+	s.Logger.Info(nil, "shutting down server in %s", s.osExitDelay.String())
 	time.Sleep(s.osExitDelay)
 
 	s.ExitProcess()
 }
 
 func (s *Server) ExitProcess() {
-	s.statusLogger.Info("shutting down server with exit code %d", s.osExitCode)
+	s.Logger.Info(nil, "shutting down server with exit code %d", s.osExitCode)
 	os.Exit(s.osExitCode)
 }
 
 // NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler,
 // on activation, calls each middleware in order, if no error was returned and
 // `ctx.Next()` was called. If a middleware wants to finish the processing, it
-// can just write to the `http.ResponseWriter` or use the `ctx.Responder` for
+// can just write to the `http.ResponseWriter` or use the `ctx.Response` for
 // convienience.
-//
-// The `Context.App` can be initialized by providing a CtxConstructor via
-// `SetAppContext()`.
-func (this *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
+func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		// Initialize fresh scope variables.
-		ctx := &Context{
-			MuxVars: mux.Vars(req),
-			Response: Response{
-				w: res,
-			},
+		// prepare request
+		requestID := req.Header.Get(RequestIDHeader)
+
+		// TODO: This is just for backward compatibility. Currently clients are
+		// sending both, client and request ID's. We just changed our concept and
+		// pushed client changes too fast, so we need to support them for a while
+		// to not be confused by our received data.
+		clientID := req.Header.Get("X-Client-ID")
+		if clientID != "" && requestID != "" {
+			requestID = clientID
 		}
 
-		if this.ctxConstructor != nil {
-			ctx.App = this.ctxConstructor()
+		if requestID == "" {
+			requestID = s.IDFactory()
+		} else {
+			requestID += ", " + s.IDFactory()
+		}
+		requestCtx := requestcontext.Ctx{
+			RequestIDKey: requestID,
 		}
 
-		for _, middleware := range middlewares {
-			nextCalled := false
-			ctx.Next = func() error {
-				nextCalled = true
-				return nil
+		// create handler that actually processes the middlewares
+		middlewareHandler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			ctx := &Context{
+				MuxVars: mux.Vars(req),
+				Request: requestCtx,
+				Response: Response{
+					w: res,
+				},
+				RequestID: func() string {
+					return requestID
+				},
 			}
 
-			// End the request with an error and stop calling further middlewares.
-			if err := middleware(res, req, ctx); err != nil {
-				if this.statusLogger != nil {
-					this.statusLogger.Error("%s %s %#v", req.Method, req.URL, errgo.Mask(err))
+			if s.ctxConstructor != nil {
+				ctx.App = s.ctxConstructor()
+			}
+
+			for _, middleware := range middlewares {
+				nextCalled := false
+				ctx.Next = func() error {
+					nextCalled = true
+					return nil
 				}
-				ctx.Response.Error(err.Error(), http.StatusInternalServerError)
-				return
-			}
 
-			if !nextCalled {
-				break
+				// End the request with an error and stop calling further middlewares.
+				if err := middleware(res, req, ctx); err != nil {
+					s.Logger.Error(requestCtx, "%s %s %#v", req.Method, req.URL, errgo.Mask(err))
+
+					ctx.Response.Error(err.Error(), http.StatusInternalServerError)
+					break
+				}
+
+				if !nextCalled {
+					break
+				}
 			}
+		})
+
+		// do access-logging by wrapping the middleware handler
+		reporter := DefaultAccessReporter(requestCtx, s.Logger)
+		if s.extendAccessLogging {
+			reporter = ExtendedAccessReporter(requestCtx, s.Logger)
 		}
+
+		handler := NewLogAccessHandler(
+			reporter,
+			s.preHTTPHandler,
+			s.postHTTPHandler,
+			middlewareHandler,
+		).(http.HandlerFunc)
+
+		// handle request
+		handler.ServeHTTP(res, req)
 	})
 }

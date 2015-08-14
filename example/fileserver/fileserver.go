@@ -1,19 +1,15 @@
 package main
 
 import (
-	srvPkg "github.com/giantswarm/middleware-server"
+	"github.com/giantswarm/middleware-server"
 )
 
 // $ curl -i http://localhost:8080/v1/public/
 // $ curl -i http://localhost:8080/v1/public/test.html
 //
 func main() {
-	logger := srvPkg.NewLogger(srvPkg.LoggerOptions{Name: "fileserver-example"})
-
-	srv := srvPkg.NewServer("127.0.0.1", "8080")
-	srv.SetLogger(logger)
-
-	srv.ServeStatic("/v1/public/", "./example/fileserver/public/")
-
+	srv := server.NewServer("127.0.0.1", "8080")
+	srv.ServeStatic("/", "./example/fileserver/public/")
+	srv.Logger.Info(nil, "This is the fileserver example. Try `curl localhost:8080` to see what happens.")
 	srv.Listen()
 }
