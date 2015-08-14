@@ -231,7 +231,7 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 			requestID += ", " + s.IDFactory()
 		}
 		requestCtx := requestcontext.Ctx{
-			RequestIDHeader: requestID,
+			RequestIDKey: requestID,
 		}
 
 		// create handler that actually processes the middlewares
