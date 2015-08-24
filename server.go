@@ -48,9 +48,24 @@ type Context struct {
 	// CtxConstructor, if set in the server.
 	App     interface{}
 	Request requestcontext.Ctx
+}
 
-	RequestID    func() string
-	SetRequestID func(ID string)
+// RequestID returns ID for the current request.
+// If none is found, an empty string is returned.
+func (c *Context) RequestID() string {
+	idRaw := c.Request[RequestIDKey]
+	if id, ok := idRaw.(string); ok {
+		return id
+	} else {
+		// ID not found in map
+		return ""
+	}
+}
+
+// SetRequestID overwrites the request ID of the current request
+// with the given ID.
+func (c *Context) SetRequestID(ID string) {
+	c.Request[RequestIDKey] = ID
 }
 
 type Server struct {
@@ -242,18 +257,6 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 				Request: requestCtx,
 				Response: Response{
 					w: res,
-				},
-				RequestID: func() string {
-					idRaw := requestCtx[RequestIDKey]
-					if id, ok := idRaw.(string); ok {
-						return id
-					} else {
-						// ID not found in map
-						return ""
-					}
-				},
-				SetRequestID: func(ID string) {
-					requestCtx[RequestIDKey] = ID
 				},
 			}
 
