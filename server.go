@@ -49,7 +49,8 @@ type Context struct {
 	App     interface{}
 	Request requestcontext.Ctx
 
-	RequestID func() string
+	RequestID    func() string
+	SetRequestID func(ID string)
 }
 
 type Server struct {
@@ -243,7 +244,16 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 					w: res,
 				},
 				RequestID: func() string {
-					return requestID
+					idRaw := requestCtx[RequestIDKey]
+					if id, ok := idRaw.(string); ok {
+						return id
+					} else {
+						// ID not found in map
+						return ""
+					}
+				},
+				SetRequestID: func(ID string) {
+					requestCtx[RequestIDKey] = ID
 				},
 			}
 
