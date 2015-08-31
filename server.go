@@ -275,8 +275,6 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 
 				// End the request with an error and stop calling further middlewares.
 				if err := middleware(res, req, ctx); err != nil {
-					s.Logger.Error(requestCtx, "%s %s %#v", req.Method, req.URL, errgo.Mask(err))
-
 					ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 					break
 				}
