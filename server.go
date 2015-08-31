@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -36,7 +37,7 @@ type Context struct {
 	MuxVars map[string]string
 
 	// Helper to quickly write results to the `http.ResponseWriter`.
-	Response Response
+	Response *Response
 
 	// A middleware should call Next() to signal that no problem was encountered
 	// and the next middleware in the chain can be executed after this middleware
@@ -255,8 +256,9 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 			ctx := &Context{
 				MuxVars: mux.Vars(req),
 				Request: requestCtx,
-				Response: Response{
-					w: res,
+				Response: &Response{
+					w:    res,
+					once: sync.Once{},
 				},
 			}
 
