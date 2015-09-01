@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -27,16 +28,13 @@ const (
 
 type CtxConstructor func() interface{}
 
-// Middleware is a http handler method.
-type Middleware func(res http.ResponseWriter, req *http.Request, ctx *Context) error
-
 // Context is a map getting through all middlewares.
 type Context struct {
 	// Contains all placeholders from the route.
 	MuxVars map[string]string
 
 	// Helper to quickly write results to the `http.ResponseWriter`.
-	Response Response
+	Response *Response
 
 	// A middleware should call Next() to signal that no problem was encountered
 	// and the next middleware in the chain can be executed after this middleware
@@ -222,6 +220,56 @@ func (s *Server) ExitProcess() {
 	os.Exit(s.osExitCode)
 }
 
+// Middleware is a http handler method.
+type Middleware func(res http.ResponseWriter, req *http.Request, ctx *Context) error
+
+func (s *Server) ServeAsync(middlewares ...Middleware) Middleware {
+	if len(middlewares) == 0 {
+		panic("need at least one middleware")
+	}
+
+	asyncMiddleware := func(res http.ResponseWriter, req *http.Request, ctx *Context) error {
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(middlewares))
+
+		for i, middleware := range middlewares {
+			wg.Add(1)
+
+			go func(
+				index int,
+				middleware func(res http.ResponseWriter, req *http.Request, ctx *Context) error,
+				res http.ResponseWriter,
+				req *http.Request,
+				ctx *Context,
+			) {
+				defer wg.Done()
+
+				if err := middleware(res, req, ctx); err != nil {
+					errChan <- errgo.WithCausef(err, errgo.Cause(err), "Async %s error", funcName(middleware))
+				}
+			}(i, middleware, res, req, ctx)
+		}
+
+		wg.Wait()
+		close(errChan)
+
+		if err, ok := <-errChan; ok {
+			// Log all errors we do not return.
+			for err := range errChan {
+				s.Logger.Error(ctx.Request, "%#v", maskAny(err))
+			}
+
+			// Return the first error.
+			s.Logger.Error(ctx.Request, "%#v", maskAny(err))
+			return maskAny(err)
+		}
+
+		return ctx.Next()
+	}
+
+	return asyncMiddleware
+}
+
 // NewMiddlewareHandler wraps the middlewares in a http.Handler. The handler,
 // on activation, calls each middleware in order, if no error was returned and
 // `ctx.Next()` was called. If a middleware wants to finish the processing, it
@@ -255,8 +303,9 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 			ctx := &Context{
 				MuxVars: mux.Vars(req),
 				Request: requestCtx,
-				Response: Response{
-					w: res,
+				Response: &Response{
+					w:    res,
+					once: sync.Once{},
 				},
 			}
 
@@ -273,8 +322,6 @@ func (s *Server) NewMiddlewareHandler(middlewares []Middleware) http.Handler {
 
 				// End the request with an error and stop calling further middlewares.
 				if err := middleware(res, req, ctx); err != nil {
-					s.Logger.Error(requestCtx, "%s %s %#v", req.Method, req.URL, errgo.Mask(err))
-
 					ctx.Response.Error(err.Error(), http.StatusInternalServerError)
 					break
 				}
