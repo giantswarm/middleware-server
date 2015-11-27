@@ -26,3 +26,5 @@ _testmain.go
 
 # examples
 *.example
+
+middleware-server 
