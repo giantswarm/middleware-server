@@ -201,6 +201,11 @@ func (s *Server) listenSignals() {
 	}
 }
 
+// Closing returns true when the server is shutting down, false otherwise.
+func (s *Server) Closing() bool {
+	return s.signalCounter > 0
+}
+
 func (s *Server) Close() {
 	// Interrupt the process when closing is requested twice.
 	if atomic.AddUint32(&s.signalCounter, 1) >= 2 {
