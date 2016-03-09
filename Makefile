@@ -28,6 +28,11 @@ get-deps: .gobuild
 
 	#
 	# Fetch public dependencies via `go get`
+	GOPATH=$(GOPATH) builder go get github.com/dchest/uniuri
+	GOPATH=$(GOPATH) builder go get github.com/giantswarm/request-context
+	GOPATH=$(GOPATH) builder go get github.com/juju/errgo
+	GOPATH=$(GOPATH) builder go get github.com/gorilla/mux
+	GOPATH=$(GOPATH) builder go get github.com/gorilla/context
 	GOPATH=$(GOPATH) go get -d -v github.com/giantswarm/$(PROJECT)
 
 	#
