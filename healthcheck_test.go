@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	srvPkg "github.com/catalyst-zero/middleware-server"
+	srvPkg "github.com/giantswarm/middleware-server"
 )
 
 func TestHealtcheck(t *testing.T) {
